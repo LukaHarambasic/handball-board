@@ -10,6 +10,8 @@ export type Stroke = {
   points: Point[]
   /** Set when drawn in half view, so a line reaching past the centre line stays on that half. */
   side?: Side
+  /** Pen colour id; lines from before colours existed have none and draw black. */
+  color?: string
 }
 
 export type BoardState = {

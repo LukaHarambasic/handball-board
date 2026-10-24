@@ -2,17 +2,21 @@ import { useMemo, useRef, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { strokeLength, strokePath } from '../board/strokePath'
 import { visibleTokenLabel } from '../board/Tokens'
-import { clampToBox, placementBox, visibleTokens } from '../state/courtView'
+import { penValue } from '../board/penColors'
+import { clampToBox, placementBox, visibleStrokes, visibleTokens } from '../state/courtView'
 import { announce, useBoard, useUi } from '../state/store'
 import type { Point, Team } from '../state/types'
 import { strings } from '../strings'
 import { courtToView, hitToken, inRect, screenToCourt, type Layout, type Rect } from './coords'
+import { eraserHits } from './eraser'
 
 /** Movement below this many pixels counts as a tap, not a drag. */
 const TAP_SLOP = 10
 const MIN_POINT_GAP = 0.03 // metres between recorded stroke points
 const MIN_STROKE_LENGTH = 0.25 // shorter touches are taps, not lines
 const LIFT = 1.18
+const ERASER_MIN_PX = 16 // eraser reach around the finger, beyond the line itself
+const LINE_HALF_WIDTH = 0.11
 
 type StrokeGesture = { kind: 'stroke'; pointerId: number; pointerType: string; points: Point[]; raf: number }
 type DragGesture = {
@@ -30,12 +34,14 @@ type DragGesture = {
   deleteRect: Rect
   barTop: number
 }
-type Gesture = StrokeGesture | DragGesture
+type EraseGesture = { kind: 'erase'; pointerId: number; pointerType: string; last: Point; removed: number }
+type Gesture = StrokeGesture | DragGesture | EraseGesture
 
 export type PointerRouter = {
   onBoardPointerDown: (e: React.PointerEvent) => void
   startSpawn: (team: Team, e: React.PointerEvent) => void
   liveStrokeRef: RefObject<SVGPathElement | null>
+  eraserRef: RefObject<SVGCircleElement | null>
   dragOuterRef: RefObject<SVGGElement | null>
   dragInnerRef: RefObject<SVGGElement | null>
   deleteZoneRef: RefObject<HTMLDivElement | null>
@@ -45,13 +51,15 @@ export type PointerRouter = {
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
 /**
- * One router for the whole board, with no modes: a finger that lands on a player moves it,
- * a finger that lands on empty court draws. Only the first pointer counts, so a palm or a
- * second hand is ignored. During a gesture the SVG is updated directly; the store is only
- * touched on release, which keeps drawing at display rate.
+ * One router for the whole board. With the default draw tool a finger that lands on a player
+ * moves it and a finger that lands on empty court draws. With the eraser on, everything the
+ * finger touches is removed. Only the first pointer counts, so a palm or a second hand is
+ * ignored. During a gesture the SVG is updated directly; the store is only touched on
+ * release (or per item erased), which keeps drawing at display rate.
  */
 export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRouter {
   const liveStrokeRef = useRef<SVGPathElement | null>(null)
+  const eraserRef = useRef<SVGCircleElement | null>(null)
   const dragOuterRef = useRef<SVGGElement | null>(null)
   const dragInnerRef = useRef<SVGGElement | null>(null)
   const deleteZoneRef = useRef<HTMLDivElement | null>(null)
@@ -91,7 +99,7 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
       active = g
       shrinkSeq += 1
       // Render the lifted token synchronously so it is under the finger on the first frame.
-      flushSync(() => useUi.setState({ drag: { id: g.id, team: g.team }, overDelete: false, menuOpen: false }))
+      flushSync(() => useUi.setState({ drag: { id: g.id, team: g.team }, overDelete: false, openMenu: null }))
       setDragTransform(g.pos, LIFT)
       attach()
     }
@@ -138,7 +146,52 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
     const startStroke = (e: React.PointerEvent, p: Point) => {
       active = { kind: 'stroke', pointerId: e.pointerId, pointerType: e.pointerType, points: [p], raf: 0 }
       liveStrokeRef.current?.setAttribute('d', '')
+      liveStrokeRef.current?.setAttribute('fill', penValue(useBoard.getState().penColor))
       attach()
+    }
+
+    const eraserReach = () => {
+      const l = layoutRef.current
+      const scale = l?.scale ?? 30
+      return { token: l?.hitRadius ?? 1, line: Math.max(0.25, ERASER_MIN_PX / scale) + LINE_HALF_WIDTH }
+    }
+
+    /** Shows the eraser's reach under the finger, or hides it. */
+    const showEraser = (p: Point | null) => {
+      const el = eraserRef.current
+      const l = layoutRef.current
+      if (!el || !l) return
+      if (!p) return el.setAttribute('visibility', 'hidden')
+      const [u, v] = courtToView(l.orientation, p[0], p[1])
+      el.setAttribute('cx', u.toFixed(3))
+      el.setAttribute('cy', v.toFixed(3))
+      el.setAttribute('r', eraserReach().line.toFixed(3))
+      el.setAttribute('visibility', 'visible')
+    }
+
+    /** Removes every visible player and line touched between a and b. */
+    const eraseAlong = (g: EraseGesture, a: Point, b: Point) => {
+      const s = useBoard.getState()
+      const reach = eraserReach()
+      const hits = eraserHits(visibleTokens(s, s.tokens), visibleStrokes(s, s.strokes), a, b, reach.token, reach.line)
+      for (const id of hits.tokenIds) s.deleteToken(id)
+      for (const id of hits.strokeIds) s.deleteStroke(id)
+      g.removed += hits.tokenIds.length + hits.strokeIds.length
+    }
+
+    const startErase = (e: React.PointerEvent, p: Point) => {
+      const g: EraseGesture = { kind: 'erase', pointerId: e.pointerId, pointerType: e.pointerType, last: p, removed: 0 }
+      active = g
+      useBoard.getState().startBatch()
+      eraseAlong(g, p, p)
+      showEraser(p)
+      attach()
+    }
+
+    const endErase = (g: EraseGesture) => {
+      useBoard.getState().endBatch()
+      showEraser(null)
+      if (g.removed) announce(strings.announceRemoved(g.removed))
     }
 
     function onMove(e: PointerEvent) {
@@ -153,6 +206,14 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
           if (p && last && Math.hypot(p[0] - last[0], p[1] - last[1]) >= MIN_POINT_GAP) g.points.push(p)
         }
         if (!g.raf) g.raf = requestAnimationFrame(renderLiveStroke)
+        return
+      }
+      if (g.kind === 'erase') {
+        const p = toCourt(e)
+        if (!p) return
+        eraseAlong(g, g.last, p)
+        g.last = p
+        showEraser(p)
         return
       }
       const p = toCourt(e)
@@ -227,7 +288,8 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
         const last = g.points[g.points.length - 1]
         if (p && last && (p[0] !== last[0] || p[1] !== last[1])) g.points.push(p)
         endStroke(g, true)
-      } else finishDrag(g, e)
+      } else if (g.kind === 'erase') endErase(g)
+      else finishDrag(g, e)
     }
 
     function onCancel(e: PointerEvent) {
@@ -236,6 +298,7 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
       active = null
       detach()
       if (g.kind === 'stroke') endStroke(g, false)
+      else if (g.kind === 'erase') endErase(g)
       else clearDrag()
     }
 
@@ -255,14 +318,15 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
 
     const onBoardPointerDown = (e: React.PointerEvent) => {
       if (!accepts(e)) return
-      if (useUi.getState().menuOpen) {
-        useUi.setState({ menuOpen: false })
+      if (useUi.getState().openMenu) {
+        useUi.setState({ openMenu: null })
         return
       }
       const l = layoutRef.current
       const p = toCourt(e)
       if (!l || !p) return
       e.preventDefault()
+      if (useUi.getState().tool === 'erase') return startErase(e, p)
       const s = useBoard.getState()
       const hit = hitToken(visibleTokens(s, s.tokens), p[0], p[1], l.hitRadius)
       if (hit) beginDrag(dragFor(e, hit.id, hit.team, [hit.x, hit.y], [hit.x - p[0], hit.y - p[1]]))
@@ -273,10 +337,11 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
       if (!accepts(e)) return
       const p = toCourt(e)
       if (!p) return
-      useUi.setState({ menuOpen: false })
+      // Taking a player from a tray means placing, not erasing.
+      useUi.setState({ openMenu: null, tool: 'draw' })
       beginDrag(dragFor(e, null, team, p, [0, 0]))
     }
 
-    return { onBoardPointerDown, startSpawn, liveStrokeRef, dragOuterRef, dragInnerRef, deleteZoneRef, barRef }
+    return { onBoardPointerDown, startSpawn, liveStrokeRef, eraserRef, dragOuterRef, dragInnerRef, deleteZoneRef, barRef }
   }, [layoutRef])
 }

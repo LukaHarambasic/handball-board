@@ -13,6 +13,7 @@ export function DragLayer({ layout, router }: { layout: Layout; router: PointerR
           <feDropShadow dx="0" dy="0.3" stdDeviation="0.3" floodColor="#0F172A" floodOpacity="0.4" />
         </filter>
       </defs>
+      <circle ref={router.eraserRef} className="eraser-ring" visibility="hidden" />
       {drag && (
         <g ref={router.dragOuterRef}>
           <g ref={router.dragInnerRef} filter="url(#lift-shadow)">

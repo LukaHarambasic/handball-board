@@ -9,17 +9,15 @@ import { AttackerIcon, DefenderIcon } from './icons'
 
 const TRAY_HINT_ID = 'tray-hint'
 
-const TRAYS: { team: Team; label: string; name: string; Icon: () => React.JSX.Element; cls: string }[] = [
+const TRAYS: { team: Team; name: string; Icon: () => React.JSX.Element; cls: string }[] = [
   {
     team: 'defense',
-    label: strings.defense,
     name: strings.addDefender,
     Icon: DefenderIcon,
     cls: 'bg-defense-soft text-defense-ink hover:bg-defense-active',
   },
   {
     team: 'attack',
-    label: strings.attack,
     name: strings.addAttacker,
     Icon: AttackerIcon,
     cls: 'bg-attack-soft text-attack-ink hover:bg-attack-active',
@@ -36,22 +34,19 @@ export function TokenTray({ router }: { router: PointerRouter }) {
   }
   return (
     <>
-      {TRAYS.map(({ team, label, name, Icon, cls }) => (
+      {TRAYS.map(({ team, name, Icon, cls }) => (
         <button
           key={team}
           id={`tray-${team}`}
           type="button"
           aria-label={name}
           aria-describedby={TRAY_HINT_ID}
-          className={`${BTN} tray touch-none pl-3.5 pr-5 @max-[680px]:px-2.5 ${cls}`}
+          className={`${BTN} tray touch-none ${cls}`}
           onPointerDown={(e) => router.startSpawn(team, e)}
           onClick={onClick(team)}
           onContextMenu={(e) => e.preventDefault()}
         >
           <Icon />
-          <span className="@max-[680px]:sr-only" aria-hidden="true">
-            {label}
-          </span>
         </button>
       ))}
       <span id={TRAY_HINT_ID} className="sr-only">

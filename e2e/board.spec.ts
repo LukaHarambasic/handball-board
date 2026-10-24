@@ -32,10 +32,13 @@ async function swipe(page: Page, id: number, from: [number, number], to: [number
   await touch(page, 'pointerup', id, ...to)
 }
 
-/** The court switch, the one toolbar button that opens a menu. */
-const courtMenuButton = (page: Page) => page.locator('.bottom-bar button[aria-haspopup="menu"]')
+const courtMenuButton = (page: Page) => page.getByRole('button', { name: /^Court:/ })
+const clearButton = (page: Page) => page.getByRole('button', { name: 'Clear the court' })
+const eraserButton = (page: Page) => page.getByRole('button', { name: /^Eraser/ })
+/** 6 v 6 goes on the left half, so the right half stays empty: right in landscape, bottom in portrait. */
+const emptyHalf = (page: Page, fx: number, fy: number) => emptyCourt(page, 0.5 + fx / 2, 0.5 + fy / 2)
 const tokens = (page: Page) => page.locator('.board [data-token-id]')
-const strokes = (page: Page) => page.locator('.board path[d^="M"]').and(page.locator('g[opacity="0.88"] path'))
+const strokes = (page: Page) => page.locator('.board .strokes path[data-stroke-id]')
 
 async function center(page: Page, selector: string) {
   const box = await page.locator(selector).first().boundingBox()
@@ -123,26 +126,86 @@ test('6 v 6 places twelve players in one tap', async ({ page }) => {
   await expect(page.locator('.board [data-token-id] polygon')).toHaveCount(6)
 })
 
-test('a finger on empty court draws; Erase clears players and lines', async ({ page }) => {
-  const erase = page.getByRole('button', { name: 'Erase everything on the court' })
-  await expect(erase).toBeDisabled()
+test('a finger on empty court draws; Clear removes players and lines', async ({ page }) => {
+  await expect(clearButton(page)).toBeDisabled()
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
-  await swipe(page, 1, await emptyCourt(page, 0.1, 0.2), await emptyCourt(page, 0.4, 0.5))
-  // Both strokes stay on the half 6 v 6 leaves empty, in either orientation.
-  await swipe(page, 1, await emptyCourt(page, 0.15, 0.3), await emptyCourt(page, 0.3, 0.45))
+  await swipe(page, 1, await emptyHalf(page, 0.2, 0.2), await emptyHalf(page, 0.7, 0.6))
+  await swipe(page, 1, await emptyHalf(page, 0.3, 0.7), await emptyHalf(page, 0.6, 0.9))
   await expect(strokes(page)).toHaveCount(2)
-  await erase.click()
+  await clearButton(page).click()
   await expect(strokes(page)).toHaveCount(0)
   await expect(tokens(page)).toHaveCount(0)
-  await expect(erase).toBeDisabled()
+  await expect(clearButton(page)).toBeDisabled()
   await expect(page.getByRole('status')).toHaveText('Court cleared')
+})
+
+test('6 v 6 goes on the left half of the full court', async ({ page }) => {
+  await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
+  const court = (await page.locator('.board > g > g rect').first().boundingBox())!
+  const portrait = (await page.locator('.app').getAttribute('data-orientation')) === 'portrait'
+  for (const t of await tokens(page).all()) {
+    const b = (await t.boundingBox())!
+    if (portrait) expect(b.y + b.height / 2).toBeLessThan(court.y + court.height / 2)
+    else expect(b.x + b.width / 2).toBeLessThan(court.x + court.width / 2)
+  }
+})
+
+test('line colour: the pen menu sets the colour of new lines', async ({ page }) => {
+  await swipe(page, 1, await emptyHalf(page, 0.2, 0.2), await emptyHalf(page, 0.7, 0.4))
+  await page.getByRole('button', { name: 'Line colour: Black' }).click()
+  await page.getByRole('menuitemradio', { name: 'Orange' }).click()
+  await expect(page.getByRole('menu')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Line colour: Orange' })).toBeVisible()
+  await swipe(page, 1, await emptyHalf(page, 0.2, 0.7), await emptyHalf(page, 0.7, 0.9))
+  await expect(strokes(page).nth(0)).toHaveAttribute('fill', '#1B2230')
+  await expect(strokes(page).nth(1)).toHaveAttribute('fill', '#C2410C')
+  // Remembered after a reload.
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Line colour: Orange' })).toBeVisible()
+})
+
+test('eraser: a swipe removes every player and line it touches; undo brings them back, redo removes again', async ({ page }) => {
+  const tray = await center(page, '#tray-attack')
+  await touch(page, 'pointerdown', 1, ...tray)
+  await touch(page, 'pointerup', 1, ...tray) // one attacker on the left half
+  await swipe(page, 1, await emptyHalf(page, 0.2, 0.2), await emptyHalf(page, 0.8, 0.3))
+  await swipe(page, 1, await emptyHalf(page, 0.2, 0.7), await emptyHalf(page, 0.8, 0.8))
+  await expect(strokes(page)).toHaveCount(2)
+
+  await eraserButton(page).click()
+  await expect(eraserButton(page)).toHaveAttribute('aria-pressed', 'true')
+  // With the eraser on, a swipe draws nothing and removes both lines it crosses...
+  // The lines run across the court's width in both orientations, so cross them along its length.
+  await swipe(page, 1, await emptyHalf(page, 0.5, 0.05), await emptyHalf(page, 0.5, 0.95), 24)
+  await expect(strokes(page)).toHaveCount(0)
+  // ...and a tap on a player removes it.
+  const player = await center(page, '.board [data-token-id] polygon')
+  await touch(page, 'pointerdown', 1, ...player)
+  await touch(page, 'pointerup', 1, ...player)
+  await expect(tokens(page)).toHaveCount(0)
+
+  // The swipe was one step: one undo restores both lines.
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(tokens(page)).toHaveCount(1)
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(strokes(page)).toHaveCount(2)
+  await page.getByRole('button', { name: 'Redo' }).click()
+  await expect(strokes(page)).toHaveCount(0)
+  // Keyboard shortcut too.
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(strokes(page)).toHaveCount(2)
+
+  // Taking a player from a tray switches back to drawing.
+  await touch(page, 'pointerdown', 1, ...tray)
+  await touch(page, 'pointerup', 1, ...tray)
+  await expect(eraserButton(page)).toHaveAttribute('aria-pressed', 'false')
 })
 
 test('a second finger or palm neither moves tokens nor draws', async ({ page }) => {
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
   const token = await center(page, '.board [data-token-id] rect')
-  const a = await emptyCourt(page, 0.1, 0.3)
-  const b = await emptyCourt(page, 0.3, 0.3)
+  const a = await emptyHalf(page, 0.2, 0.3)
+  const b = await emptyHalf(page, 0.6, 0.6)
   await touch(page, 'pointerdown', 1, ...a)
   // Second touch lands on a token and drags it while the first is drawing.
   await touch(page, 'pointerdown', 2, ...token)
@@ -156,9 +219,9 @@ test('a second finger or palm neither moves tokens nor draws', async ({ page }) 
 })
 
 test('court switch: half shows the half changed last; full brings the other half back as it was', async ({ page }) => {
-  // Players on the right (6 v 6), then a line on the left: the left half changed last.
+  // Players on the left (6 v 6), then a line on the right: the right half changed last.
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
-  await swipe(page, 1, await emptyCourt(page, 0.1, 0.3), await emptyCourt(page, 0.3, 0.6))
+  await swipe(page, 1, await emptyHalf(page, 0.2, 0.3), await emptyHalf(page, 0.6, 0.6))
 
   const courtButton = courtMenuButton(page)
   await courtButton.click()
@@ -167,32 +230,32 @@ test('court switch: half shows the half changed last; full brings the other half
   await expect(tokens(page)).toHaveCount(0)
   await expect(strokes(page)).toHaveCount(1)
 
-  // Erase in half view only wipes the visible half, players and lines.
+  // Clear in half view only wipes the visible half, players and lines.
   await swipe(page, 1, await emptyCourt(page, 0.2, 0.2), await emptyCourt(page, 0.4, 0.3))
   await page.locator('#tray-attack').focus()
   await page.keyboard.press('Enter')
   await expect(strokes(page)).toHaveCount(2)
   await expect(tokens(page)).toHaveCount(1)
-  await page.getByRole('button', { name: 'Erase everything on the court' }).click()
+  await clearButton(page).click()
   await expect(strokes(page)).toHaveCount(0)
   await expect(tokens(page)).toHaveCount(0)
-  await swipe(page, 1, await emptyCourt(page, 0.1, 0.3), await emptyCourt(page, 0.3, 0.6))
+  await swipe(page, 1, await emptyCourt(page, 0.2, 0.3), await emptyCourt(page, 0.5, 0.6))
 
   await courtMenuButton(page).click()
   await page.getByRole('menuitemradio', { name: /Full court/ }).click()
   await expect(tokens(page)).toHaveCount(12)
   await expect(strokes(page)).toHaveCount(1)
-  // The line is back on the left half.
-  const line = await page.locator('g[opacity="0.88"] path[d^="M"]').first().boundingBox()
+  // The line is back on the right half.
+  const line = await strokes(page).first().boundingBox()
   const court = await page.locator('.board > g > g rect').first().boundingBox()
   const portrait = (await page.locator('.app').getAttribute('data-orientation')) === 'portrait'
-  if (portrait) expect(line!.y + line!.height / 2).toBeLessThan(court!.y + court!.height / 2)
-  else expect(line!.x + line!.width / 2).toBeLessThan(court!.x + court!.width / 2)
+  if (portrait) expect(line!.y + line!.height / 2).toBeGreaterThan(court!.y + court!.height / 2)
+  else expect(line!.x + line!.width / 2).toBeGreaterThan(court!.x + court!.width / 2)
 })
 
 test('board state survives a reload', async ({ page }) => {
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
-  await swipe(page, 1, await emptyCourt(page, 0.1, 0.2), await emptyCourt(page, 0.4, 0.5))
+  await swipe(page, 1, await emptyHalf(page, 0.2, 0.2), await emptyHalf(page, 0.7, 0.6))
   await page.reload()
   await expect(tokens(page)).toHaveCount(12)
   await expect(strokes(page)).toHaveCount(1)
@@ -307,6 +370,14 @@ test.describe('canvases', () => {
     const overlaps =
       button.x < court.x + court.width && button.x + button.width > court.x && button.y < court.y + court.height && button.y + button.height > court.y
     expect(overlaps).toBe(false)
+  })
+
+  test('undo history belongs to one canvas', async ({ page }) => {
+    await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled()
+    await openCanvases(page)
+    await dialog(page).getByRole('button', { name: 'New canvas' }).click()
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled()
   })
 
   test('touch: a tap opens the dialog, a tap outside closes it and the board works again', async ({ page }) => {

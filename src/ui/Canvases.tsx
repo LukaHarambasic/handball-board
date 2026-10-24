@@ -25,7 +25,7 @@ export const Canvases = forwardRef<HTMLButtonElement>(function Canvases(_, ref) 
   const [open, setOpen] = useState(false)
 
   const show = () => {
-    useUi.setState({ menuOpen: false })
+    useUi.setState({ openMenu: null })
     setOpen(true)
   }
   const close = () => {

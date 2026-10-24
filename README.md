@@ -22,6 +22,13 @@ Static hosting only; `netlify.toml` holds the build, caching and security header
 2. In Netlify: **Add new project → Import an existing project**, pick the repo. Build settings come from `netlify.toml` (`npm run build`, publish `dist`, Node 24).
 3. Production deploys from `main`; every pull request gets a Deploy Preview to test on the iPad before merging.
 
+## On the board
+
+- **Toolbar (icons only):** court view · defender and attacker trays · 6 v 6 (left half on the full court, else the visible half) · line colour · eraser · clear · full screen.
+- **Eraser:** while it is on, every player and line you touch or swipe across is removed. Taking a player from a tray or picking a line colour switches back to drawing.
+- **Clear:** removes every player and line on the visible court.
+- **Undo / Redo:** top centre (top right on phones), also ⌘Z / ⇧⌘Z. One eraser swipe is one step; each canvas has its own history, which starts fresh when you switch canvases.
+
 ## Releases and installed apps
 
 Push to `main` and Netlify deploys. Copies already added to the Home Screen update themselves:
@@ -43,6 +50,7 @@ Push to `main` and Netlify deploys. Copies already added to the Home Screen upda
 
 - Every control is a real button with a text name; focus is always visible.
 - Players are keyboard-operable: Tab to a player, arrow keys move it (Shift for larger steps), Delete removes it. Tray buttons place a player on Enter.
+- Toolbar buttons are icons only; each has a full accessible name, and the eraser reports on/off (`aria-pressed`).
 - The court menu supports arrow keys, Home/End and Escape.
 - Board changes are announced through a polite live region.
 - Touch targets are at least 44 px; teams differ by shape (square vs triangle), not just colour.

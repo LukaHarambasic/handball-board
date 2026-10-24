@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import type { BoardState } from '../state/types'
 import { Court } from './CourtMarkings'
-import { STROKE_COLOR } from './Strokes'
+import { penValue } from './penColors'
 import { strokePath } from './strokePath'
 import { TokenShape } from './TokenShape'
 
@@ -10,9 +10,9 @@ export const CanvasThumb = memo(function CanvasThumb({ board }: { board: BoardSt
   return (
     <svg viewBox="-1 -1 42 22" className="canvas-thumb" aria-hidden="true" focusable="false">
       <Court />
-      <g fill={STROKE_COLOR}>
+      <g>
         {board.strokes.map((s) => (
-          <path key={s.id} d={strokePath(s.points)} />
+          <path key={s.id} d={strokePath(s.points)} fill={penValue(s.color)} />
         ))}
       </g>
       {board.tokens.map((t) => (

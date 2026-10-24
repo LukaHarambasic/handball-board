@@ -409,3 +409,88 @@ input {
     right: max(8px, env(safe-area-inset-right));
   }
 }
+
+/* The eraser's reach, shown under the finger while erasing. */
+.eraser-ring {
+  fill: rgb(200 30 48 / 0.12);
+  stroke: var(--color-danger);
+  stroke-width: 0.06;
+  stroke-dasharray: 0.18 0.12;
+}
+
+/* Undo / Redo: top centre, same row and height as the canvases button. */
+.undo-redo {
+  position: absolute;
+  z-index: 30;
+  top: max(12px, calc(env(safe-area-inset-top) + 12px));
+  left: 50%;
+  transform: translateX(-50%);
+  height: 52px;
+  box-sizing: border-box;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow:
+    0 6px 24px rgb(15 23 42 / 0.12),
+    0 1px 2px rgb(15 23 42 / 0.08);
+}
+.undo-redo button {
+  width: 52px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--color-ink);
+}
+.undo-redo button:hover:not(:disabled) {
+  background: var(--color-chip);
+}
+.undo-redo button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.undo-redo button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* Keep the canvases button clear of the centred pill. */
+@media (min-width: 640px) {
+  .canvas-button {
+    max-width: min(300px, calc(50vw - 24px - 60px - 12px));
+  }
+}
+/* Phones: the centre is too narrow, so the pill moves top right and Update ready drops below it. */
+@media (max-width: 639px), (max-height: 500px) {
+  .undo-redo {
+    top: max(8px, env(safe-area-inset-top));
+    left: auto;
+    right: max(8px, env(safe-area-inset-right));
+    transform: none;
+    height: 48px;
+  }
+  .undo-redo button {
+    width: 46px;
+    height: 40px;
+  }
+  .update-button {
+    top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+  }
+}
+@media (max-height: 500px) and (min-width: 640px) {
+  .undo-redo {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+  .update-button {
+    top: max(10px, calc(env(safe-area-inset-top) + 2px));
+  }
+}
+@media (max-width: 400px) {
+  .bottom-bar {
+    padding: 0 4px;
+    gap: 4px;
+  }
+}

@@ -124,3 +124,32 @@ export const RefreshIcon = () => (
     <path d="M20 4v7h-7" />
   </svg>
 )
+
+export const PenIcon = ({ color }: { color: string }) => (
+  <svg viewBox="0 0 24 24" width="26" height="26" {...base} strokeWidth="2">
+    <path d="M4 20l1-4L16 5l3 3L8 19l-4 1z" />
+    <path d="M14 7l3 3" />
+    <circle cx="19" cy="19" r="3.2" fill={color} stroke="#fff" strokeWidth="1.4" />
+  </svg>
+)
+
+export const ClearIcon = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" {...base} strokeWidth="2">
+    <rect x="3.5" y="5" width="17" height="14" rx="2" />
+    <path d="M9 9.5l6 5M15 9.5l-6 5" />
+  </svg>
+)
+
+export const UndoIcon = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" {...base} strokeWidth="2.2">
+    <path d="M9 14L4 9l5-5" />
+    <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
+  </svg>
+)
+
+export const RedoIcon = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" {...base} strokeWidth="2.2">
+    <path d="M15 14l5-5-5-5" />
+    <path d="M20 9H10a6 6 0 0 0 0 12h3" />
+  </svg>
+)

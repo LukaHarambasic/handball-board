@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import { persist, type StateStorage, createJSONStorage } from 'zustand/middleware'
 import { sixVsSix } from '../setups/sixVsSix'
 import { activeSide, placementBox, sideOfStroke, sideOfX, strokeSide, switchView } from './courtView'
+import { DEFAULT_PEN, type PenColor } from '../board/penColors'
 import { cleanName, cloneBoard, copyName, nextCanvasName } from './canvases'
-import type { BoardState, Canvas, Point, Team, Token, View } from './types'
+import type { BoardState, Canvas, Point, Stroke, Team, Token, View } from './types'
 
 let counter = 0
 export function makeId(): string {
@@ -18,9 +19,17 @@ type Actions = {
   moveToken: (id: string, x: number, y: number) => void
   deleteToken: (id: string) => void
   addStroke: (points: Point[]) => void
-  erase: () => void
+  deleteStroke: (id: string) => void
+  /** Clears the visible court: every player and line on it. */
+  clear: () => void
+  setPenColor: (color: PenColor) => void
   setupSixVsSix: () => void
   setView: (view: View) => void
+  undo: () => void
+  redo: () => void
+  /** Groups the edits until endBatch into one undo step (an eraser swipe). */
+  startBatch: () => void
+  endBatch: () => void
 }
 
 type CanvasActions = {
@@ -38,8 +47,31 @@ type CanvasActions = {
  * The board fields at the top level are always the open canvas, so the board code never
  * deals with canvases. Its entry in `canvases` is only brought up to date when needed.
  */
-export type BoardStore = BoardState & { canvases: Canvas[]; activeId: string } & Actions & CanvasActions
-type Persisted = { canvases: Canvas[]; activeId: string }
+/** What undo restores: the players and lines, not the court view. */
+type Snapshot = Pick<BoardState, 'tokens' | 'strokes' | 'lastChangedSide'>
+type History = {
+  past: Snapshot[]
+  future: Snapshot[]
+  /** 'open' until the batch's first edit records a step, then 'recorded'. */
+  batch: 'none' | 'open' | 'recorded'
+}
+const HISTORY_LIMIT = 100
+const emptyHistory: History = { past: [], future: [], batch: 'none' }
+const snapshot = (s: BoardState): Snapshot => ({ tokens: s.tokens, strokes: s.strokes, lastChangedSide: s.lastChangedSide })
+
+/** Adds an edit to the undo history (once per batch) and drops anything that could be redone. */
+function edit(s: BoardStore, next: Partial<BoardStore>): Partial<BoardStore> {
+  if (s.batch === 'recorded') return next
+  return {
+    ...next,
+    past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),
+    future: [],
+    batch: s.batch === 'open' ? 'recorded' : 'none',
+  }
+}
+
+export type BoardStore = BoardState & { canvases: Canvas[]; activeId: string; penColor: PenColor } & History & Actions & CanvasActions
+type Persisted = { canvases: Canvas[]; activeId: string; penColor?: PenColor }
 
 export const initialBoard: BoardState = {
   view: 'full',
@@ -58,9 +90,9 @@ export function syncedCanvases(s: BoardStore): Canvas[] {
   return s.canvases.map((c) => (c.id === s.activeId ? { ...c, board: pickBoard(s) } : c))
 }
 
-export function initialStore(): Pick<BoardStore, keyof BoardState | 'canvases' | 'activeId'> {
+export function initialStore(): Pick<BoardStore, keyof BoardState | keyof History | 'canvases' | 'activeId' | 'penColor'> {
   const first: Canvas = { id: makeId(), name: nextCanvasName([]), board: initialBoard }
-  return { ...initialBoard, canvases: [first], activeId: first.id }
+  return { ...initialBoard, ...emptyHistory, canvases: [first], activeId: first.id, penColor: DEFAULT_PEN }
 }
 
 /** Version 1 stored a single board; it becomes the first canvas. */
@@ -125,7 +157,7 @@ export const useBoard = create<BoardStore>()(
 
       placeToken: (team, x, y) => {
         const token = { id: makeId(), team, x, y }
-        set((s) => ({ tokens: [...s.tokens, token], lastChangedSide: sideOfX(x) }))
+        set((s) => edit(s, { tokens: [...s.tokens, token], lastChangedSide: sideOfX(x) }))
         return token
       },
 
@@ -140,50 +172,79 @@ export const useBoard = create<BoardStore>()(
       },
 
       moveToken: (id, x, y) =>
-        set((s) => ({
-          tokens: s.tokens.map((t) => (t.id === id ? { ...t, x, y } : t)),
-          lastChangedSide: sideOfX(x),
-        })),
+        set((s) =>
+          edit(s, {
+            tokens: s.tokens.map((t) => (t.id === id ? { ...t, x, y } : t)),
+            lastChangedSide: sideOfX(x),
+          }),
+        ),
 
       deleteToken: (id) =>
         set((s) => {
           const t = s.tokens.find((t) => t.id === id)
           if (!t) return s
-          return { tokens: s.tokens.filter((t) => t.id !== id), lastChangedSide: sideOfX(t.x) }
+          return edit(s, { tokens: s.tokens.filter((t) => t.id !== id), lastChangedSide: sideOfX(t.x) })
         }),
 
       addStroke: (points) =>
         set((s) => {
           const side = s.view === 'half' ? s.halfSide : strokeSide(points)
-          const stroke = s.view === 'half' ? { id: makeId(), points, side } : { id: makeId(), points }
-          return { strokes: [...s.strokes, stroke], lastChangedSide: side }
+          const base = { id: makeId(), points, color: s.penColor }
+          const stroke = s.view === 'half' ? { ...base, side } : base
+          return edit(s, { strokes: [...s.strokes, stroke], lastChangedSide: side })
         }),
 
+      deleteStroke: (id) =>
+        set((s) => {
+          const st = s.strokes.find((x) => x.id === id)
+          if (!st) return s
+          return edit(s, { strokes: s.strokes.filter((x) => x.id !== id), lastChangedSide: sideOfStroke(st) })
+        }),
+
+      setPenColor: (penColor) => set({ penColor }),
+
       // Clears everything on the visible court, players and lines. In half view the hidden half is kept.
-      erase: () =>
-        set((s) =>
-          s.view === 'half'
-            ? {
-                strokes: s.strokes.filter((st) => sideOfStroke(st) !== s.halfSide),
-                tokens: s.tokens.filter((t) => sideOfX(t.x) !== s.halfSide),
-              }
-            : { strokes: [], tokens: [] },
-        ),
+      clear: () =>
+        set((s) => {
+          const keepStroke = (st: Stroke) => s.view === 'half' && sideOfStroke(st) !== s.halfSide
+          const keepToken = (t: Token) => s.view === 'half' && sideOfX(t.x) !== s.halfSide
+          const strokes = s.strokes.filter(keepStroke)
+          const tokens = s.tokens.filter(keepToken)
+          if (strokes.length === s.strokes.length && tokens.length === s.tokens.length) return s
+          return edit(s, { strokes, tokens })
+        }),
 
       // In half view only the visible half's players are replaced.
       setupSixVsSix: () =>
         set((s) => {
           const side = activeSide(s)
           const kept = s.view === 'half' ? s.tokens.filter((t) => sideOfX(t.x) !== side) : []
-          return { tokens: [...kept, ...sixVsSix(side, makeId)], lastChangedSide: side }
+          return edit(s, { tokens: [...kept, ...sixVsSix(side, makeId)], lastChangedSide: side })
         }),
 
       setView: (view) => set((s) => switchView(s, view)),
 
+      undo: () =>
+        set((s) => {
+          const prev = s.past[s.past.length - 1]
+          if (!prev) return s
+          return { ...prev, past: s.past.slice(0, -1), future: [snapshot(s), ...s.future].slice(0, HISTORY_LIMIT) }
+        }),
+
+      redo: () =>
+        set((s) => {
+          const next = s.future[0]
+          if (!next) return s
+          return { ...next, future: s.future.slice(1), past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT) }
+        }),
+
+      startBatch: () => set({ batch: 'open' }),
+      endBatch: () => set({ batch: 'none' }),
+
       createCanvas: () => {
         const s = get()
         const canvas: Canvas = { id: makeId(), name: nextCanvasName(s.canvases), board: initialBoard }
-        set({ canvases: [...syncedCanvases(s), canvas], activeId: canvas.id, ...initialBoard })
+        set({ canvases: [...syncedCanvases(s), canvas], activeId: canvas.id, ...initialBoard, ...emptyHistory })
         return canvas
       },
 
@@ -207,7 +268,7 @@ export const useBoard = create<BoardStore>()(
           const rest = list.filter((c) => c.id !== id)
           if (id !== s.activeId) return { canvases: rest }
           const next = rest[Math.min(i, rest.length - 1)] as Canvas
-          return { canvases: rest, activeId: next.id, ...next.board }
+          return { canvases: rest, activeId: next.id, ...next.board, ...emptyHistory }
         }),
 
       renameCanvas: (id, name) =>
@@ -221,7 +282,7 @@ export const useBoard = create<BoardStore>()(
         set((s) => {
           const target = s.canvases.find((c) => c.id === id)
           if (!target || id === s.activeId) return s
-          return { canvases: syncedCanvases(s), activeId: id, ...target.board }
+          return { canvases: syncedCanvases(s), activeId: id, ...target.board, ...emptyHistory }
         }),
     }),
     {
@@ -229,13 +290,13 @@ export const useBoard = create<BoardStore>()(
       name: 'handball-board-v1',
       version: 2,
       storage: createJSONStorage(() => safeStorage),
-      partialize: (s): Persisted => ({ canvases: syncedCanvases(s), activeId: s.activeId }),
+      partialize: (s): Persisted => ({ canvases: syncedCanvases(s), activeId: s.activeId, penColor: s.penColor }),
       migrate: (persisted, version) => migrateStored(persisted, version) as unknown as BoardStore,
       merge: (persisted, current) => {
         const p = persisted as Persisted | undefined
         const active = p?.canvases?.find((c) => c.id === p.activeId) ?? p?.canvases?.[0]
         if (!p || !active) return current
-        return { ...current, canvases: p.canvases, activeId: active.id, ...active.board }
+        return { ...current, canvases: p.canvases, activeId: active.id, penColor: p.penColor ?? current.penColor, ...active.board }
       },
     },
   ),
@@ -246,7 +307,10 @@ type UiState = {
   /** Token being dragged; `spawned` means it came from a tray and is not in the store yet. */
   drag: { id: string | null; team: Team } | null
   overDelete: boolean
-  menuOpen: boolean
+  /** The toolbar menu that is open, if any. */
+  openMenu: 'court' | 'pen' | null
+  /** Draw (default): a finger on empty court draws. Erase: everything touched is removed. */
+  tool: 'draw' | 'erase'
   /** A new app version is downloaded and waiting. */
   updateReady: boolean
   announcement: { text: string; n: number }
@@ -255,7 +319,8 @@ type UiState = {
 export const useUi = create<UiState>()(() => ({
   drag: null,
   overDelete: false,
-  menuOpen: false,
+  openMenu: null,
+  tool: 'draw',
   updateReady: false,
   announcement: { text: '', n: 0 },
 }))

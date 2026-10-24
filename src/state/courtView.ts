@@ -69,7 +69,7 @@ export function switchView(state: BoardState, view: View): BoardState {
   return { ...state, view, lastChangedSide: state.halfSide }
 }
 
-/** Side that 6 v 6 and tap-to-place use. */
+/** Side that 6 v 6 and tap-to-place use: the visible half, or the left half on the full court. */
 export function activeSide(state: Pick<BoardState, 'view' | 'halfSide'>): Side {
-  return state.view === 'half' ? state.halfSide : 'right'
+  return state.view === 'half' ? state.halfSide : 'left'
 }

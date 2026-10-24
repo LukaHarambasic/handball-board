@@ -12,14 +12,14 @@ const OPTIONS: { view: View; label: string; hint: string; Icon: () => React.JSX.
 
 /** Court switch: a menu that opens upward from the bottom bar. */
 export function CourtMenu() {
-  const open = useUi((s) => s.menuOpen)
+  const open = useUi((s) => s.openMenu === 'court')
   const view = useBoard((s) => s.view)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const menuId = useId()
 
-  const setOpen = (menuOpen: boolean) => useUi.setState({ menuOpen })
+  const setOpen = (o: boolean) => useUi.setState({ openMenu: o ? 'court' : null })
 
   useEffect(() => {
     if (!open) return
@@ -111,14 +111,11 @@ export function CourtMenu() {
             setOpen(true)
           }
         }}
-        className={`${BTN} pr-3 ${open ? 'bg-defense-active text-defense-ink' : 'bg-chip text-ink hover:bg-chip-hover'}`}
+        aria-label={strings.chooseCourt(full ? strings.fullCourt : strings.halfCourt)}
+        className={`${BTN} w-auto! gap-1.5 px-3.5 @max-[400px]:px-2.5 ${open ? 'bg-defense-active text-defense-ink' : 'bg-chip text-ink hover:bg-chip-hover'}`}
       >
         {full ? <FullCourtIcon /> : <HalfCourtIcon />}
-        <span className="@max-[480px]:sr-only">
-          {full ? strings.fullCourtShort : strings.halfCourtShort}
-          <span className="@max-[900px]:sr-only">{strings.courtSuffix}</span>
-        </span>
-        <span className="text-ink-muted">
+        <span className="text-ink-muted @max-[400px]:hidden">
           <ChevronIcon up={!open} />
         </span>
       </button>

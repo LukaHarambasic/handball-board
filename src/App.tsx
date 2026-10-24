@@ -10,6 +10,7 @@ import { strings } from './strings'
 import { BottomBar } from './ui/BottomBar'
 import { Canvases } from './ui/Canvases'
 import { InstallHint } from './ui/InstallHint'
+import { UndoRedo } from './ui/UndoRedo'
 import { UpdateButton } from './ui/UpdateButton'
 import { LiveRegion } from './ui/LiveRegion'
 
@@ -17,6 +18,7 @@ export function App() {
   const rootRef = useRef<HTMLElement>(null)
   const insetProbeRef = useRef<HTMLDivElement>(null)
   const canvasButtonRef = useRef<HTMLButtonElement>(null)
+  const undoRedoRef = useRef<HTMLDivElement>(null)
   const layoutRef = useRef<Layout | null>(null)
   const router = usePointerRouter(layoutRef)
   const layout = useLayout({
@@ -24,6 +26,7 @@ export function App() {
     bar: router.barRef,
     deleteZone: router.deleteZoneRef,
     canvasButton: canvasButtonRef,
+    undoRedo: undoRedoRef,
     insetProbe: insetProbeRef,
   })
   layoutRef.current = layout
@@ -35,6 +38,7 @@ export function App() {
       {layout && <Board layout={layout} router={router} />}
       <DeleteZone zoneRef={router.deleteZoneRef} />
       <Canvases ref={canvasButtonRef} />
+      <UndoRedo ref={undoRedoRef} />
       <InstallHint />
       <UpdateButton />
       <BottomBar ref={router.barRef} router={router} />
