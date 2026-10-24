@@ -309,6 +309,25 @@ test.describe('canvases', () => {
     expect(overlaps).toBe(false)
   })
 
+  test('touch: a tap opens the dialog, a tap outside closes it and the board works again', async ({ page }) => {
+    await page.locator('.canvas-button').tap()
+    await expect(dialog(page)).toBeVisible()
+    await expect(dialog(page)).toBeFocused()
+    // The board behind is inert while the dialog is open.
+    await expect(page.locator('#root')).toHaveAttribute('inert', '')
+    const vp = page.viewportSize()!
+    await page.locator('.canvas-overlay').tap({ position: { x: vp.width - 10, y: vp.height - 10 } })
+    await expect(dialog(page)).toBeHidden()
+    await expect(page.locator('#root')).not.toHaveAttribute('inert', '')
+    await expect(page.locator('.canvas-button')).toBeFocused()
+    await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).tap()
+    await expect(tokens(page)).toHaveCount(12)
+    // Tapping a canvas row opens it.
+    await page.locator('.canvas-button').tap()
+    await dialog(page).getByRole('button', { name: 'New canvas' }).tap()
+    await expect(tokens(page)).toHaveCount(0)
+  })
+
   test('the last canvas cannot be deleted', async ({ page }) => {
     await openCanvases(page)
     await expect(dialog(page).getByRole('button', { name: 'Delete Canvas 1' })).toBeDisabled()

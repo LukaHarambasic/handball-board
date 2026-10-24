@@ -278,16 +278,23 @@
   background: var(--color-chip);
 }
 
-.canvas-dialog {
+.canvas-overlay {
   position: fixed;
-  inset: auto;
+  inset: 0;
+  z-index: 60;
+  background: rgb(15 23 42 / 0.28);
+  touch-action: none;
+  font-family: var(--font-sans);
+}
+.canvas-dialog {
+  position: absolute;
   top: calc(max(12px, calc(env(safe-area-inset-top) + 12px)) + 60px);
   left: max(24px, calc(env(safe-area-inset-left) + 12px));
-  margin: 0;
-  padding: 0;
   width: min(480px, calc(100vw - 48px));
   max-height: calc(100dvh - max(12px, calc(env(safe-area-inset-top) + 12px)) - 60px - 24px);
-  border: none;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   border-radius: 22px;
   background: #fff;
   color: var(--color-ink);
@@ -295,18 +302,11 @@
     0 16px 48px rgb(15 23 42 / 0.22),
     0 1px 2px rgb(15 23 42 / 0.08);
   overflow: hidden;
-}
-.canvas-dialog[open] {
-  display: flex;
-  flex-direction: column;
   animation: canvas-in 140ms ease-out;
 }
-/* The dialog itself takes focus on open; only its controls show a ring. */
+/* The panel itself takes focus on open; only its controls show a ring. */
 .canvas-dialog:focus-visible {
   outline: none;
-}
-.canvas-dialog::backdrop {
-  background: rgb(15 23 42 / 0.28);
 }
 @keyframes canvas-in {
   from {

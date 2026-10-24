@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { CanvasThumb } from '../board/CanvasThumb'
 import { MAX_NAME_LENGTH } from '../state/canvases'
 import { announce, pickBoard, useBoard, useUi } from '../state/store'
@@ -10,19 +11,35 @@ const TITLE_ID = 'canvases-title'
 const ICON_BTN =
   'flex size-11 shrink-0 items-center justify-center rounded-xl text-ink hover:bg-chip disabled:opacity-35 disabled:hover:bg-transparent'
 
-/** Top-left button showing the open canvas; opens the canvases dialog. */
+/**
+ * Top-left button showing the open canvas; opens the canvases dialog.
+ *
+ * The dialog is a plain overlay rather than a native <dialog>: showModal() is missing or
+ * unreliable on some iPadOS versions, and this behaves the same everywhere. While it is open
+ * the rest of the app is inert, Escape or a tap outside closes it, and focus returns here.
+ */
 export const Canvases = forwardRef<HTMLButtonElement>(function Canvases(_, ref) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const name = useBoard((s) => s.canvases.find((c) => c.id === s.activeId)?.name ?? '')
   const [open, setOpen] = useState(false)
 
   const show = () => {
     useUi.setState({ menuOpen: false })
-    dialogRef.current?.showModal()
     setOpen(true)
   }
-  const close = () => dialogRef.current?.close()
+  const close = () => {
+    setOpen(false)
+    requestAnimationFrame(() => buttonRef.current?.focus())
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const root = document.getElementById('root')
+    root?.setAttribute('inert', '')
+    dialogRef.current?.focus()
+    return () => root?.removeAttribute('inert')
+  }, [open])
 
   return (
     <>
@@ -45,19 +62,24 @@ export const Canvases = forwardRef<HTMLButtonElement>(function Canvases(_, ref) 
           <ChevronIcon up={false} />
         </span>
       </button>
-      <dialog
-        ref={dialogRef}
-        className="canvas-dialog"
-        aria-labelledby={TITLE_ID}
-        onClose={() => {
-          setOpen(false)
-          buttonRef.current?.focus()
-        }}
-        // A tap on the backdrop lands on the dialog element itself.
-        onClick={(e) => e.target === dialogRef.current && close()}
-      >
-        {open && <CanvasList onDone={close} />}
-      </dialog>
+      {open &&
+        createPortal(
+          <div
+            className="canvas-overlay"
+            // A tap outside the panel lands on the overlay itself.
+            onClick={(e) => e.target === e.currentTarget && close()}
+            onKeyDown={(e) => {
+              if (e.key !== 'Escape') return
+              e.preventDefault()
+              close()
+            }}
+          >
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={TITLE_ID} tabIndex={-1} className="canvas-dialog">
+              <CanvasList onDone={close} />
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   )
 })
