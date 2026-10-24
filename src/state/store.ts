@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { Zoom } from '../input/coords'
 import { persist, type StateStorage, createJSONStorage } from 'zustand/middleware'
 import { sixVsSix } from '../setups/sixVsSix'
 import { activeSide, placementBox, sideOfStroke, sideOfX, strokeSide, switchView } from './courtView'
@@ -311,6 +312,8 @@ type UiState = {
   openMenu: 'court' | 'pen' | null
   /** Draw (default): a finger on empty court draws. Erase: everything touched is removed. */
   tool: 'draw' | 'erase'
+  /** Pinch or trackpad zoom; null is the whole court. Not saved. */
+  zoom: Zoom | null
   /** A new app version is downloaded and waiting. */
   updateReady: boolean
   announcement: { text: string; n: number }
@@ -321,6 +324,7 @@ export const useUi = create<UiState>()(() => ({
   overDelete: false,
   openMenu: null,
   tool: 'draw',
+  zoom: null,
   updateReady: false,
   announcement: { text: '', n: 0 },
 }))

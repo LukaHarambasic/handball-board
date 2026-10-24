@@ -153,3 +153,9 @@ export const RedoIcon = () => (
     <path d="M20 9H10a6 6 0 0 0 0 12h3" />
   </svg>
 )
+
+export const MinusIcon = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" {...base} strokeWidth="2.4">
+    <path d="M5 12h14" />
+  </svg>
+)

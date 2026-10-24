@@ -51,7 +51,19 @@ export type Layout = {
   tokenSize: number
   /** Touch radius in metres: at least 22 px, so the target is 44 px across. */
   hitRadius: number
+  /** Zoom on top of the fit: 1 shows the whole court. */
+  zoom: number
+  /** The fitted court before zoom: its scale, its screen centre and its view-space box. */
+  fit: { scale: number; cx: number; cy: number; box: { u0: number; v0: number; u1: number; v1: number } }
 }
+
+/**
+ * Zoom on top of the fitted court: `z` times bigger, with view point (u, v) shown where the
+ * fitted court's centre was. Kept in view metres, so it survives rotation and resizing.
+ */
+export type Zoom = { z: number; u: number; v: number }
+export const MIN_ZOOM = 1
+export const MAX_ZOOM = 4
 
 const PAD = 8
 const GAP = 10
@@ -65,7 +77,7 @@ function viewBoxOf(o: Orientation, b: Box) {
   return { u0: Math.min(ua, ub), v0: Math.min(va, vb), u1: Math.max(ua, ub), v1: Math.max(va, vb) }
 }
 
-export function computeLayout(i: LayoutInput): Layout {
+export function computeLayout(i: LayoutInput, zoom: Zoom | null = null): Layout {
   const orientation: Orientation = i.width >= i.height ? 'landscape' : 'portrait'
   const visible = visibleBox(i.view, i.halfSide)
   const vb = viewBoxOf(orientation, visible)
@@ -101,10 +113,12 @@ export function computeLayout(i: LayoutInput): Layout {
     top += need - lineTop
     f = fit(top)
   }
-  const { scale, contentLeft, contentTop } = f
-
-  const ox = contentLeft - scale * vb.u0
-  const oy = contentTop - scale * vb.v0
+  const fitCx = f.contentLeft + (f.scale * cw) / 2
+  const fitCy = f.contentTop + (f.scale * ch) / 2
+  const z = zoom ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom.z)) : 1
+  const scale = f.scale * z
+  const ox = fitCx - scale * (zoom && z > 1 ? zoom.u : vb.u0 + cw / 2)
+  const oy = fitCy - scale * (zoom && z > 1 ? zoom.v : vb.v0 + ch / 2)
   const tokenSize = Math.max(TOKEN_M, MIN_TOKEN_PX / scale)
   return {
     width: i.width,
@@ -117,7 +131,35 @@ export function computeLayout(i: LayoutInput): Layout {
     visible,
     tokenSize,
     hitRadius: Math.max((tokenSize / 2) * 1.15, MIN_HIT_PX / scale),
+    zoom: z,
+    fit: { scale: f.scale, cx: fitCx, cy: fitCy, box: vb },
   }
+}
+
+/**
+ * Zooms by `k` so the court point under screen point `from` ends up under `to` (pinch: the
+ * fingers' midpoint before and after; trackpad and buttons: the same point). Panning stays
+ * within the court. Returns null at 100 %, which is the plain fitted court.
+ */
+export function zoomAround(l: Layout, k: number, from: Point, to: Point = from): Zoom | null {
+  const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, l.zoom * k))
+  if (z <= MIN_ZOOM + 0.001) return null
+  const u = (from[0] - l.ox) / l.scale
+  const v = (from[1] - l.oy) / l.scale
+  const scale = l.fit.scale * z
+  const ox = to[0] - u * scale
+  const oy = to[1] - v * scale
+  const { box } = l.fit
+  return {
+    z,
+    u: Math.min(box.u1, Math.max(box.u0, (l.fit.cx - ox) / scale)),
+    v: Math.min(box.v1, Math.max(box.v0, (l.fit.cy - oy) / scale)),
+  }
+}
+
+/** Moves a zoomed court by (dx, dy) screen pixels; does nothing at 100 %. */
+export function panBy(l: Layout, dx: number, dy: number): Zoom | null {
+  return l.zoom > 1 ? zoomAround(l, 1, [0, 0], [dx, dy]) : null
 }
 
 export function screenToCourt(l: Layout, px: number, py: number): Point {

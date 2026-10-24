@@ -151,59 +151,54 @@
   }
 }
 
-/* Delete zone: top right, inset from the edge and the Control Center swipe. */
+/* Delete zone: the whole top third of the screen while a player is dragged. */
 .delete-zone {
   position: absolute;
   z-index: 35;
-  top: max(12px, calc(env(safe-area-inset-top) + 12px));
-  right: max(24px, calc(env(safe-area-inset-right) + 12px));
-  width: 220px;
-  height: 64px;
-  box-sizing: border-box;
-  padding-left: 18px;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 33.333%;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: 18px;
-  border: 2px dashed var(--color-danger);
-  background: #fff;
-  color: var(--color-danger);
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.1;
-  box-shadow: 0 8px 24px rgb(15 23 42 / 0.14);
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: max(16px, calc(env(safe-area-inset-top) + 12px));
+  box-sizing: border-box;
+  background: linear-gradient(to bottom, rgb(200 30 48 / 0.16), rgb(200 30 48 / 0.06));
+  border-bottom: 2px dashed rgb(200 30 48 / 0.55);
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-6px);
   transition:
     opacity 120ms ease,
-    transform 120ms ease,
     visibility 0s linear 120ms;
 }
 .delete-zone[data-visible='true'] {
   opacity: 1;
   visibility: visible;
-  transform: none;
-  transition:
-    opacity 120ms ease,
-    transform 120ms ease;
+  transition: opacity 120ms ease;
 }
 .delete-zone[data-over='true'] {
-  border-style: solid;
+  background: linear-gradient(to bottom, rgb(200 30 48 / 0.38), rgb(200 30 48 / 0.2));
+  border-bottom-style: solid;
+  border-bottom-color: var(--color-danger);
+}
+.delete-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 20px 0 16px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--color-danger);
+  font-size: 18px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.16);
+}
+.delete-zone[data-over='true'] .delete-pill {
   background: var(--color-danger);
   color: #fff;
-  box-shadow:
-    0 0 0 6px rgb(214 40 57 / 0.22),
-    0 8px 24px rgb(200 30 48 / 0.35);
-}
-@media (max-height: 500px), (max-width: 639px) {
-  .delete-zone {
-    top: max(8px, env(safe-area-inset-top));
-    width: 180px;
-    height: 52px;
-    font-size: 16px;
-  }
 }
 
 .install-hint {
@@ -418,17 +413,17 @@ input {
   stroke-dasharray: 0.18 0.12;
 }
 
-/* Undo / Redo: top centre, same row and height as the canvases button. */
+/* Top row: canvases (left), zoom (centre), undo / redo (right), all 52 px tall. */
+.zoom-controls,
 .undo-redo {
   position: absolute;
   z-index: 30;
   top: max(12px, calc(env(safe-area-inset-top) + 12px));
-  left: 50%;
-  transform: translateX(-50%);
   height: 52px;
   box-sizing: border-box;
   padding: 4px;
   display: flex;
+  align-items: center;
   gap: 4px;
   border-radius: 16px;
   background: #fff;
@@ -436,8 +431,16 @@ input {
     0 6px 24px rgb(15 23 42 / 0.12),
     0 1px 2px rgb(15 23 42 / 0.08);
 }
+.zoom-controls {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.undo-redo {
+  right: max(24px, calc(env(safe-area-inset-right) + 12px));
+}
+.zoom-controls button,
 .undo-redo button {
-  width: 52px;
+  min-width: 48px;
   height: 44px;
   display: flex;
   align-items: center;
@@ -445,47 +448,84 @@ input {
   border-radius: 12px;
   color: var(--color-ink);
 }
+.zoom-controls .zoom-level {
+  min-width: 64px;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.zoom-controls button:hover:not(:disabled),
 .undo-redo button:hover:not(:disabled) {
   background: var(--color-chip);
 }
+.zoom-controls button:active:not(:disabled),
 .undo-redo button:active:not(:disabled) {
   transform: scale(0.95);
 }
+.zoom-controls button:disabled,
 .undo-redo button:disabled {
   opacity: 0.35;
   cursor: default;
 }
-/* Keep the canvases button clear of the centred pill. */
+/* At 100 % the level is plain text, not a dimmed button. */
+.zoom-controls .zoom-level:disabled {
+  opacity: 1;
+  color: var(--color-ink-muted);
+}
+.update-button {
+  top: calc(max(12px, calc(env(safe-area-inset-top) + 12px)) + 60px);
+}
+/* Keep the canvases button clear of the centred zoom controls. */
 @media (min-width: 640px) {
   .canvas-button {
-    max-width: min(300px, calc(50vw - 24px - 60px - 12px));
+    max-width: min(300px, calc(50vw - 24px - 84px - 12px));
   }
 }
-/* Phones: the centre is too narrow, so the pill moves top right and Update ready drops below it. */
-@media (max-width: 639px), (max-height: 500px) {
+/* Phones: the row is tight. Zoom shrinks to the level, shown only when zoomed in (pinch to zoom). */
+@media (max-width: 639px) {
+  .zoom-controls,
   .undo-redo {
     top: max(8px, env(safe-area-inset-top));
-    left: auto;
-    right: max(8px, env(safe-area-inset-right));
-    transform: none;
     height: 48px;
   }
+  .undo-redo {
+    right: max(8px, env(safe-area-inset-right));
+  }
+  .zoom-controls button,
   .undo-redo button {
-    width: 46px;
+    min-width: 44px;
     height: 40px;
+  }
+  .zoom-controls .zoom-step {
+    display: none;
+  }
+  .zoom-controls .zoom-level {
+    min-width: 56px;
+  }
+  .zoom-controls[data-zoomed='false'] {
+    visibility: hidden;
+  }
+  /* Clear of the zoom level chip in the centre. */
+  .canvas-button {
+    max-width: min(200px, calc(50vw - 52px));
   }
   .update-button {
     top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+    right: max(8px, env(safe-area-inset-right));
   }
 }
 @media (max-height: 500px) and (min-width: 640px) {
+  .zoom-controls,
   .undo-redo {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
+    top: max(8px, env(safe-area-inset-top));
+    height: 48px;
+  }
+  .undo-redo {
+    right: max(8px, env(safe-area-inset-right));
   }
   .update-button {
-    top: max(10px, calc(env(safe-area-inset-top) + 2px));
+    top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+    right: max(8px, env(safe-area-inset-right));
   }
 }
 @media (max-width: 400px) {

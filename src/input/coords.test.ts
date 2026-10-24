@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeLayout, courtToScreen, courtToView, hitToken, screenToCourt, viewToCourt, type LayoutInput } from './coords'
+import { computeLayout, courtToScreen, courtToView, hitToken, panBy, screenToCourt, viewToCourt, zoomAround, type LayoutInput } from './coords'
 
 const ipad: LayoutInput = {
   width: 1194,
@@ -68,5 +68,38 @@ describe('screen ↔ court mapping', () => {
     ]
     expect(hitToken(tokens, 10.6, 10, 1)?.id).toBe('b')
     expect(hitToken(tokens, 14, 10, 1)).toBeUndefined()
+  })
+})
+
+describe('zoom', () => {
+  const base = computeLayout(ipad)
+
+  it('zooming keeps the court point under the fingers in place', () => {
+    const at: [number, number] = [800, 300]
+    const before = screenToCourt(base, ...at)
+    const zoomed = computeLayout(ipad, zoomAround(base, 2, at))
+    expect(zoomed.zoom).toBe(2)
+    const after = screenToCourt(zoomed, ...at)
+    expect(after[0]).toBeCloseTo(before[0], 6)
+    expect(after[1]).toBeCloseTo(before[1], 6)
+  })
+
+  it('a pinch that moves pans with the fingers', () => {
+    const z = zoomAround(base, 1.5, [600, 400])!
+    const l = computeLayout(ipad, z)
+    const point = screenToCourt(l, 600, 400)
+    const moved = computeLayout(ipad, zoomAround(l, 1, [600, 400], [650, 420]))
+    const after = screenToCourt(moved, 650, 420)
+    expect(after[0]).toBeCloseTo(point[0], 6)
+    expect(after[1]).toBeCloseTo(point[1], 6)
+  })
+
+  it('stays between 100 % and 400 %, and cannot be panned off the court', () => {
+    expect(zoomAround(base, 0.5, [600, 400])).toBeNull()
+    expect(zoomAround(base, 10, [600, 400])!.z).toBe(4)
+    const far = panBy(computeLayout(ipad, { z: 2, u: 20, v: 10 }), 100000, 100000)!
+    expect(far.u).toBe(base.fit.box.u0)
+    expect(far.v).toBe(base.fit.box.v0)
+    expect(panBy(base, 50, 50)).toBeNull()
   })
 })

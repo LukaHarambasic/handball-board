@@ -47,7 +47,7 @@ async function center(page: Page, selector: string) {
 }
 
 /** A point on empty court, a third of the way in from the top-left corner. */
-async function emptyCourt(page: Page, fx = 0.3, fy = 0.35): Promise<[number, number]> {
+async function emptyCourt(page: Page, fx = 0.3, fy = 0.6): Promise<[number, number]> {
   const box = await page.locator('.board > g > g rect').first().boundingBox()
   if (!box) throw new Error('court not rendered')
   return [box.x + box.width * fx, box.y + box.height * fy]
@@ -110,13 +110,22 @@ test('tapping a tray places a token; tokens move and delete via the delete zone'
   await expect(zone).toHaveAttribute('data-visible', 'false')
 })
 
-test('the delete zone never overlaps the court', async ({ page }) => {
-  const zone = await page.locator('.delete-zone').boundingBox()
-  const court = await page.locator('.board > g > g rect').first().boundingBox()
-  expect(zone && court).toBeTruthy()
-  const overlaps =
-    zone!.x < court!.x + court!.width && zone!.x + zone!.width > court!.x && zone!.y < court!.y + court!.height && zone!.y + zone!.height > court!.y
-  expect(overlaps).toBe(false)
+test('while dragging, the whole top third of the screen deletes a player', async ({ page }) => {
+  const vp = page.viewportSize()!
+  const zone = (await page.locator('.delete-zone').boundingBox())!
+  expect(zone.y).toBe(0)
+  expect(zone.width).toBe(vp.width)
+  expect(zone.height).toBeCloseTo(vp.height / 3, 0)
+  await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
+  const at = await center(page, '.board [data-token-id] rect')
+  // Drop in the top third, far from the middle of it.
+  const drop: [number, number] = [vp.width - 30, vp.height / 3 - 10]
+  await swipe(page, 1, at, drop)
+  await expect(tokens(page)).toHaveCount(11)
+  // Just below it nothing is deleted.
+  const at2 = await center(page, '.board [data-token-id] rect')
+  await swipe(page, 1, at2, [vp.width / 2, vp.height / 3 + 30])
+  await expect(tokens(page)).toHaveCount(11)
 })
 
 test('6 v 6 places twelve players in one tap', async ({ page }) => {
@@ -201,21 +210,79 @@ test('eraser: a swipe removes every player and line it touches; undo brings them
   await expect(eraserButton(page)).toHaveAttribute('aria-pressed', 'false')
 })
 
-test('a second finger or palm neither moves tokens nor draws', async ({ page }) => {
+test('a second finger pinches: no stray line, no player moved', async ({ page }) => {
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
+  const player = page.locator('.board [data-token-id]').first()
+  const before = await player.getAttribute('transform')
   const token = await center(page, '.board [data-token-id] rect')
   const a = await emptyHalf(page, 0.2, 0.3)
   const b = await emptyHalf(page, 0.6, 0.6)
   await touch(page, 'pointerdown', 1, ...a)
-  // Second touch lands on a token and drags it while the first is drawing.
+  await touch(page, 'pointermove', 1, a[0] + 10, a[1] + 10)
+  // Second touch lands on a player and moves while the first is drawing.
   await touch(page, 'pointerdown', 2, ...token)
   await touch(page, 'pointermove', 2, token[0] - 120, token[1])
   await touch(page, 'pointermove', 1, ...b)
   await touch(page, 'pointerup', 2, token[0] - 120, token[1])
   await touch(page, 'pointerup', 1, ...b)
-  const after = await center(page, '.board [data-token-id] rect')
-  expect(after).toEqual(token)
+  // Positions are stored in court metres, so zoom does not change them.
+  expect(await player.getAttribute('transform')).toBe(before)
+  await expect(strokes(page)).toHaveCount(0)
+  // A leftover finger after a pinch does not draw either: lines only start from a fresh touch.
+  await swipe(page, 1, await emptyHalf(page, 0.3, 0.3), await emptyHalf(page, 0.6, 0.4))
   await expect(strokes(page)).toHaveCount(1)
+})
+
+test.describe('zoom', () => {
+  const level = (page: Page) => page.locator('.zoom-level')
+
+  test('pinching with two fingers zooms around them; the level resets to the whole court', async ({ page }) => {
+    const vp = page.viewportSize()!
+    const c: [number, number] = [vp.width / 2, vp.height / 2]
+    await touch(page, 'pointerdown', 1, c[0] - 30, c[1])
+    await touch(page, 'pointerdown', 2, c[0] + 30, c[1])
+    for (let i = 1; i <= 6; i++) {
+      await touch(page, 'pointermove', 1, c[0] - 30 - i * 5, c[1])
+      await touch(page, 'pointermove', 2, c[0] + 30 + i * 5, c[1])
+    }
+    await touch(page, 'pointerup', 1, c[0] - 60, c[1])
+    await touch(page, 'pointerup', 2, c[0] + 60, c[1])
+    await expect(level(page)).toHaveText('200%')
+    await expect(strokes(page)).toHaveCount(0)
+    await level(page).click()
+    await expect(level(page)).toHaveText('100%')
+  })
+
+  test('trackpad pinch (Ctrl + wheel) zooms; scrolling pans when zoomed', async ({ page }) => {
+    // Mobile WebKit has no wheel to drive, so send the events a trackpad would.
+    const wheel = (init: { deltaX?: number; deltaY?: number; ctrlKey?: boolean }) =>
+      page.evaluate(({ deltaX = 0, deltaY = 0, ctrlKey = false }) => {
+        const x = innerWidth / 2
+        const y = innerHeight / 2
+        const target = document.elementFromPoint(x, y) ?? document.body
+        target.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: x, clientY: y, deltaX, deltaY, ctrlKey }))
+      }, init)
+    await wheel({ deltaY: -70, ctrlKey: true })
+    await expect(level(page)).toHaveText('201%')
+    const court = page.locator('.board > g > g rect').first()
+    const before = (await court.boundingBox())!
+    await wheel({ deltaX: 80 })
+    await expect.poll(async () => (await court.boundingBox())!.x).not.toBe(before.x)
+  })
+
+  test('zoom buttons step in and out, within 100–400 %', async ({ page }) => {
+    const zoomIn = page.getByRole('button', { name: 'Zoom in' })
+    const zoomOut = page.getByRole('button', { name: 'Zoom out' })
+    if (!(await zoomIn.isVisible())) test.skip(true, 'phones use pinch; only the level is shown')
+    await expect(zoomOut).toBeDisabled()
+    await zoomIn.click()
+    await expect(level(page)).toHaveText('125%')
+    for (let i = 0; i < 10; i++) if (await zoomIn.isEnabled()) await zoomIn.click()
+    await expect(level(page)).toHaveText('400%')
+    await expect(zoomIn).toBeDisabled()
+    await zoomOut.click()
+    await expect(level(page)).toHaveText('320%')
+  })
 })
 
 test('court switch: half shows the half changed last; full brings the other half back as it was', async ({ page }) => {
@@ -295,6 +362,18 @@ test('toolbar buttons meet the 44 pt touch target and fit the screen', async ({ 
     expect(box.width).toBeGreaterThanOrEqual(44)
     expect(box.x).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
+  }
+})
+
+test('the top row never overlaps: canvases left, zoom centre, undo / redo right', async ({ page }) => {
+  for (const [width, height] of [[1194, 834], [834, 1194], [683, 1000], [390, 844], [320, 568], [844, 390]] as const) {
+    await page.setViewportSize({ width, height })
+    await page.waitForTimeout(50)
+    const boxes = await Promise.all(['.canvas-button', '.zoom-controls', '.undo-redo'].map(async (s) => (await page.locator(s).boundingBox())!))
+    const [canvas, zoom, undo] = boxes as [NonNullable<(typeof boxes)[0]>, NonNullable<(typeof boxes)[0]>, NonNullable<(typeof boxes)[0]>]
+    expect(canvas.x + canvas.width, `canvases clear of zoom at ${width}x${height}`).toBeLessThanOrEqual(zoom.x)
+    expect(zoom.x + zoom.width, `zoom clear of undo at ${width}x${height}`).toBeLessThanOrEqual(undo.x)
+    expect(undo.x + undo.width).toBeLessThanOrEqual(width)
   }
 })
 

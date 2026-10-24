@@ -7,7 +7,7 @@ import { clampToBox, placementBox, visibleStrokes, visibleTokens } from '../stat
 import { announce, useBoard, useUi } from '../state/store'
 import type { Point, Team } from '../state/types'
 import { strings } from '../strings'
-import { courtToView, hitToken, inRect, screenToCourt, type Layout, type Rect } from './coords'
+import { courtToView, hitToken, inRect, screenToCourt, zoomAround, type Layout, type Rect } from './coords'
 import { eraserHits } from './eraser'
 
 /** Movement below this many pixels counts as a tap, not a drag. */
@@ -18,7 +18,7 @@ const LIFT = 1.18
 const ERASER_MIN_PX = 16 // eraser reach around the finger, beyond the line itself
 const LINE_HALF_WIDTH = 0.11
 
-type StrokeGesture = { kind: 'stroke'; pointerId: number; pointerType: string; points: Point[]; raf: number }
+type StrokeGesture = { kind: 'stroke'; pointerId: number; pointerType: string; points: Point[]; raf: number; lastPx: Point }
 type DragGesture = {
   kind: 'drag'
   pointerId: number
@@ -34,8 +34,18 @@ type DragGesture = {
   deleteRect: Rect
   barTop: number
 }
-type EraseGesture = { kind: 'erase'; pointerId: number; pointerType: string; last: Point; removed: number }
-type Gesture = StrokeGesture | DragGesture | EraseGesture
+type EraseGesture = { kind: 'erase'; pointerId: number; pointerType: string; last: Point; removed: number; lastPx: Point }
+/** Two fingers: zoom and pan. Computed from the start, so a slow re-render never compounds. */
+type PinchGesture = {
+  kind: 'pinch'
+  pointerId: number
+  pointerType: string
+  points: Map<number, Point>
+  start: { layout: Layout; mid: Point; dist: number }
+  /** Fingers still down; the gesture ends when the last one lifts. */
+  down: Set<number>
+}
+type Gesture = StrokeGesture | DragGesture | EraseGesture | PinchGesture
 
 export type PointerRouter = {
   onBoardPointerDown: (e: React.PointerEvent) => void
@@ -53,8 +63,9 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
 /**
  * One router for the whole board. With the default draw tool a finger that lands on a player
  * moves it and a finger that lands on empty court draws. With the eraser on, everything the
- * finger touches is removed. Only the first pointer counts, so a palm or a second hand is
- * ignored. During a gesture the SVG is updated directly; the store is only touched on
+ * finger touches is removed. A second finger turns a line or an erase into a pinch (zoom and
+ * pan) and the unfinished line is dropped; while a player is being dragged, extra fingers
+ * are ignored. During a gesture the SVG is updated directly; the store is only touched on
  * release (or per item erased), which keeps drawing at display rate.
  */
 export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRouter {
@@ -144,7 +155,7 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
     }
 
     const startStroke = (e: React.PointerEvent, p: Point) => {
-      active = { kind: 'stroke', pointerId: e.pointerId, pointerType: e.pointerType, points: [p], raf: 0 }
+      active = { kind: 'stroke', pointerId: e.pointerId, pointerType: e.pointerType, points: [p], raf: 0, lastPx: [e.clientX, e.clientY] }
       liveStrokeRef.current?.setAttribute('d', '')
       liveStrokeRef.current?.setAttribute('fill', penValue(useBoard.getState().penColor))
       attach()
@@ -180,7 +191,7 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
     }
 
     const startErase = (e: React.PointerEvent, p: Point) => {
-      const g: EraseGesture = { kind: 'erase', pointerId: e.pointerId, pointerType: e.pointerType, last: p, removed: 0 }
+      const g: EraseGesture = { kind: 'erase', pointerId: e.pointerId, pointerType: e.pointerType, last: p, removed: 0, lastPx: [e.clientX, e.clientY] }
       active = g
       useBoard.getState().startBatch()
       eraseAlong(g, p, p)
@@ -194,10 +205,43 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
       if (g.removed) announce(strings.announceRemoved(g.removed))
     }
 
+    const pinchState = (pts: Map<number, Point>) => {
+      const [a, b] = [...pts.values()] as [Point, Point]
+      return { mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as Point, dist: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])) }
+    }
+
+    const startPinch = (first: { pointerId: number; lastPx: Point }, e: React.PointerEvent) => {
+      const layout = layoutRef.current
+      if (!layout) return
+      const points = new Map<number, Point>([
+        [first.pointerId, first.lastPx],
+        [e.pointerId, [e.clientX, e.clientY]],
+      ])
+      active = {
+        kind: 'pinch',
+        pointerId: first.pointerId,
+        pointerType: 'touch',
+        points,
+        start: { layout, ...pinchState(points) },
+        down: new Set(points.keys()),
+      }
+      attach()
+    }
+
     function onMove(e: PointerEvent) {
       const g = active
+      if (g?.kind === 'pinch') {
+        if (!g.points.has(e.pointerId) || !g.down.has(e.pointerId)) return
+        e.preventDefault()
+        g.points.set(e.pointerId, [e.clientX, e.clientY])
+        if (g.down.size < 2) return
+        const now = pinchState(g.points)
+        useUi.setState({ zoom: zoomAround(g.start.layout, now.dist / g.start.dist, g.start.mid, now.mid) })
+        return
+      }
       if (!g || e.pointerId !== g.pointerId) return
       e.preventDefault()
+      if (g.kind === 'stroke' || g.kind === 'erase') g.lastPx = [e.clientX, e.clientY]
       if (g.kind === 'stroke') {
         const events = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : []
         for (const ce of events.length ? events : [e]) {
@@ -278,8 +322,17 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
       requestAnimationFrame(step)
     }
 
+    /** A pinch ends once every finger is up, so a leftover finger never starts a line. */
+    const liftFromPinch = (g: PinchGesture, e: PointerEvent) => {
+      if (!g.down.delete(e.pointerId)) return
+      if (g.down.size) return
+      active = null
+      detach()
+    }
+
     function onUp(e: PointerEvent) {
       const g = active
+      if (g?.kind === 'pinch') return liftFromPinch(g, e)
       if (!g || e.pointerId !== g.pointerId) return
       active = null
       detach()
@@ -294,6 +347,7 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
 
     function onCancel(e: PointerEvent) {
       const g = active
+      if (g?.kind === 'pinch') return liftFromPinch(g, e)
       if (!g || e.pointerId !== g.pointerId) return
       active = null
       detach()
@@ -306,6 +360,7 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
     const accepts = (e: React.PointerEvent) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return false
       if (!active) return true
+      if (active.kind === 'pinch') return false
       if (active.kind === 'stroke' && active.pointerType === 'touch' && e.pointerType === 'pen') {
         const g = active
         active = null
@@ -317,6 +372,16 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
     }
 
     const onBoardPointerDown = (e: React.PointerEvent) => {
+      // A second finger during a finger's line or erase: that becomes a pinch.
+      const g = active
+      if (g && e.pointerType === 'touch' && g.pointerType === 'touch' && (g.kind === 'stroke' || g.kind === 'erase')) {
+        e.preventDefault()
+        active = null
+        detach()
+        if (g.kind === 'stroke') endStroke(g, false)
+        else endErase(g)
+        return startPinch(g, e)
+      }
       if (!accepts(e)) return
       if (useUi.getState().openMenu) {
         useUi.setState({ openMenu: null })

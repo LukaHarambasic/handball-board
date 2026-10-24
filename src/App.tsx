@@ -1,16 +1,18 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { Board } from './board/Board'
 import { DeleteZone } from './board/DeleteZone'
 import { DragLayer } from './board/DragLayer'
 import { useLayout } from './board/useLayout'
 import type { Layout } from './input/coords'
 import { usePointerRouter } from './input/usePointerRouter'
+import { useZoomInput } from './input/useZoomInput'
 import { useWakeLock } from './platform/wakeLock'
 import { strings } from './strings'
 import { BottomBar } from './ui/BottomBar'
 import { Canvases } from './ui/Canvases'
 import { InstallHint } from './ui/InstallHint'
 import { UndoRedo } from './ui/UndoRedo'
+import { ZoomControls } from './ui/ZoomControls'
 import { UpdateButton } from './ui/UpdateButton'
 import { LiveRegion } from './ui/LiveRegion'
 
@@ -19,18 +21,19 @@ export function App() {
   const insetProbeRef = useRef<HTMLDivElement>(null)
   const canvasButtonRef = useRef<HTMLButtonElement>(null)
   const undoRedoRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef<HTMLDivElement>(null)
   const layoutRef = useRef<Layout | null>(null)
+  const topControls = useMemo(() => [canvasButtonRef, zoomRef, undoRedoRef], [])
   const router = usePointerRouter(layoutRef)
   const layout = useLayout({
     root: rootRef,
     bar: router.barRef,
-    deleteZone: router.deleteZoneRef,
-    canvasButton: canvasButtonRef,
-    undoRedo: undoRedoRef,
+    topControls,
     insetProbe: insetProbeRef,
   })
   layoutRef.current = layout
   useWakeLock()
+  useZoomInput(layoutRef)
 
   return (
     <main ref={rootRef} className="app" data-orientation={layout?.orientation}>
@@ -38,6 +41,7 @@ export function App() {
       {layout && <Board layout={layout} router={router} />}
       <DeleteZone zoneRef={router.deleteZoneRef} />
       <Canvases ref={canvasButtonRef} />
+      <ZoomControls ref={zoomRef} layoutRef={layoutRef} />
       <UndoRedo ref={undoRedoRef} />
       <InstallHint />
       <UpdateButton />
