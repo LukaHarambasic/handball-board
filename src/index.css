@@ -380,3 +380,32 @@ input {
     max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - 56px - 16px);
   }
 }
+
+/* Top right, under the delete zone (which only shows while dragging). */
+.update-button {
+  position: absolute;
+  z-index: 25;
+  top: max(16px, calc(env(safe-area-inset-top) + 16px));
+  right: max(24px, calc(env(safe-area-inset-right) + 12px));
+  height: 44px;
+  padding: 0 16px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  background: var(--color-defense);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgb(30 91 216 / 0.35);
+  animation: canvas-in 160ms ease-out;
+}
+.update-button:hover {
+  background: var(--color-defense-ink);
+}
+@media (max-width: 639px), (max-height: 500px) {
+  .update-button {
+    top: max(10px, calc(env(safe-area-inset-top) + 2px));
+    right: max(8px, env(safe-area-inset-right));
+  }
+}

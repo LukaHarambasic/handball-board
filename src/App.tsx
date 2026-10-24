@@ -10,6 +10,7 @@ import { strings } from './strings'
 import { BottomBar } from './ui/BottomBar'
 import { Canvases } from './ui/Canvases'
 import { InstallHint } from './ui/InstallHint'
+import { UpdateButton } from './ui/UpdateButton'
 import { LiveRegion } from './ui/LiveRegion'
 
 export function App() {
@@ -35,6 +36,7 @@ export function App() {
       <DeleteZone zoneRef={router.deleteZoneRef} />
       <Canvases ref={canvasButtonRef} />
       <InstallHint />
+      <UpdateButton />
       <BottomBar ref={router.barRef} router={router} />
       {layout && <DragLayer layout={layout} router={router} />}
       <LiveRegion />

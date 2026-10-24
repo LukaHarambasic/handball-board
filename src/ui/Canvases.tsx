@@ -147,6 +147,7 @@ function CanvasList({ onDone }: { onDone: () => void }) {
           />
         ))}
       </ul>
+      <p className="border-t border-chip px-4 py-2.5 text-sm font-medium text-ink-muted">{strings.version(__APP_VERSION__)}</p>
     </div>
   )
 }

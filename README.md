@@ -9,6 +9,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm test           # unit tests (Vitest)
 npm run test:e2e   # touch flows in WebKit on iPad and iPhone (Playwright; run `npx playwright install webkit` once)
+npm run test:update  # installed app picks up new releases (WebKit)
 ```
 
 `npm run preview` serves the production build with the same Content-Security-Policy as Netlify.
@@ -20,6 +21,17 @@ Static hosting only; `netlify.toml` holds the build, caching and security header
 1. Push this repo to GitHub.
 2. In Netlify: **Add new project → Import an existing project**, pick the repo. Build settings come from `netlify.toml` (`npm run build`, publish `dist`, Node 24).
 3. Production deploys from `main`; every pull request gets a Deploy Preview to test on the iPad before merging.
+
+## Releases and installed apps
+
+Push to `main` and Netlify deploys. Copies already added to the Home Screen update themselves:
+
+- Every time the app is opened or brought back, and hourly while open, it checks `/version.json` (never cached) and asks the service worker for the new files.
+- A new version is never applied in the middle of a timeout. It loads straight away at launch if the board hasn't been touched yet, otherwise when the app is put away. Until then an **Update ready** button (top right) applies it with one tap.
+- Boards are kept in local storage, so updating never loses them.
+- The version and commit are shown at the bottom of the Canvases dialog, to confirm what is running.
+
+`npm run test:update` checks all of this end to end in WebKit across several fake releases.
 
 ## Using it on the iPad
 

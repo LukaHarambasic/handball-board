@@ -247,6 +247,8 @@ type UiState = {
   drag: { id: string | null; team: Team } | null
   overDelete: boolean
   menuOpen: boolean
+  /** A new app version is downloaded and waiting. */
+  updateReady: boolean
   announcement: { text: string; n: number }
 }
 
@@ -254,6 +256,7 @@ export const useUi = create<UiState>()(() => ({
   drag: null,
   overDelete: false,
   menuOpen: false,
+  updateReady: false,
   announcement: { text: '', n: 0 },
 }))
 
