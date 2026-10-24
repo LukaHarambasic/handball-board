@@ -265,7 +265,8 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
       if (!g.moved && Math.hypot(e.clientX - g.startPx[0], e.clientY - g.startPx[1]) > TAP_SLOP) g.moved = true
       g.pos = [p[0] + g.grab[0], p[1] + g.grab[1]]
       setDragTransform(g.pos, LIFT)
-      const over = g.moved && inRect(g.deleteRect, e.clientX, e.clientY, 8)
+      // No slop: the zone ends exactly at the court's top line.
+      const over = g.moved && inRect(g.deleteRect, e.clientX, e.clientY)
       if (over !== g.overDelete) {
         g.overDelete = over
         useUi.setState({ overDelete: over })

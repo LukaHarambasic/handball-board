@@ -29,7 +29,7 @@ Static hosting only; `netlify.toml` holds the build, caching and security header
 - **Clear:** removes every player and line on the visible court.
 - **Undo / Redo:** top right, also ⌘Z / ⇧⌘Z. One eraser swipe is one step; each canvas has its own history, which starts fresh when you switch canvases.
 - **Zoom:** pinch with two fingers, or pinch on a trackpad; two-finger scroll pans when zoomed. Top centre: zoom out, the level (tap for the whole court) and zoom in, 100–400 %. Phones show only the level, once zoomed. A second finger during a line turns it into a pinch and drops the line.
-- **Delete:** while a player is dragged, the top third of the screen becomes the delete zone; release there to remove it.
+- **Delete:** while a player is dragged, the strip across the full width above the court's top line becomes the delete zone; release there to remove it. Players can be dropped anywhere on the court.
 
 ## Releases and installed apps
 

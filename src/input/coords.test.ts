@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeLayout, courtToScreen, courtToView, hitToken, panBy, screenToCourt, viewToCourt, zoomAround, type LayoutInput } from './coords'
+import { computeLayout, courtTopPx, courtToScreen, courtToView, hitToken, panBy, screenToCourt, viewToCourt, zoomAround, type LayoutInput } from './coords'
 
 const ipad: LayoutInput = {
   width: 1194,
@@ -103,3 +103,14 @@ describe('zoom', () => {
     expect(panBy(base, 50, 50)).toBeNull()
   })
 })
+
+describe('court top line', () => {
+  it('is where the playing court starts on screen, in both orientations', () => {
+    const land = computeLayout(ipad)
+    expect(courtTopPx(land)).toBeCloseTo(courtToScreen(land, 0, 0)[1], 6)
+    const port = computeLayout({ ...ipad, width: 834, height: 1194, barTop: 1086 })
+    // Portrait: the left goal line is at the top.
+    expect(courtTopPx(port)).toBeCloseTo(courtToScreen(port, 0, 10)[1], 6)
+  })
+})
+

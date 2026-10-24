@@ -110,21 +110,20 @@ test('tapping a tray places a token; tokens move and delete via the delete zone'
   await expect(zone).toHaveAttribute('data-visible', 'false')
 })
 
-test('while dragging, the whole top third of the screen deletes a player', async ({ page }) => {
+test('the delete zone spans the full width down to the court line; players can be dropped anywhere on the court', async ({ page }) => {
   const vp = page.viewportSize()!
+  const courtLine = (await page.locator('.board > g > g rect').first().boundingBox())!.y
   const zone = (await page.locator('.delete-zone').boundingBox())!
   expect(zone.y).toBe(0)
   expect(zone.width).toBe(vp.width)
-  expect(zone.height).toBeCloseTo(vp.height / 3, 0)
+  expect(zone.height).toBeCloseTo(Math.max(72, courtLine), 0)
+
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
-  const at = await center(page, '.board [data-token-id] rect')
-  // Drop in the top third, far from the middle of it.
-  const drop: [number, number] = [vp.width - 30, vp.height / 3 - 10]
-  await swipe(page, 1, at, drop)
-  await expect(tokens(page)).toHaveCount(11)
-  // Just below it nothing is deleted.
-  const at2 = await center(page, '.board [data-token-id] rect')
-  await swipe(page, 1, at2, [vp.width / 2, vp.height / 3 + 30])
+  // Just below the top line, at the far right: the player stays.
+  await swipe(page, 1, await center(page, '.board [data-token-id] rect'), [vp.width - 40, zone.height + 12])
+  await expect(tokens(page)).toHaveCount(12)
+  // Above the line, anywhere across the width: deleted.
+  await swipe(page, 1, await center(page, '.board [data-token-id] rect'), [30, zone.height / 2])
   await expect(tokens(page)).toHaveCount(11)
 })
 

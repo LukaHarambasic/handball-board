@@ -151,18 +151,17 @@
   }
 }
 
-/* Delete zone: the whole top third of the screen while a player is dragged. */
+/* Delete zone: full width, from the top of the screen down to the court's top line (height set inline). */
 .delete-zone {
   position: absolute;
   z-index: 35;
   top: 0;
   left: 0;
   right: 0;
-  height: 33.333%;
   display: flex;
-  align-items: flex-start;
   justify-content: center;
-  padding-top: max(16px, calc(env(safe-area-inset-top) + 12px));
+  align-items: center;
+  padding-top: env(safe-area-inset-top);
   box-sizing: border-box;
   background: linear-gradient(to bottom, rgb(200 30 48 / 0.16), rgb(200 30 48 / 0.06));
   border-bottom: 2px dashed rgb(200 30 48 / 0.55);

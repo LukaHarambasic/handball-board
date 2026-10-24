@@ -1,4 +1,4 @@
-import { COURT_WIDTH, MARGIN } from '../board/court'
+import { COURT_LENGTH, COURT_WIDTH, MARGIN } from '../board/court'
 import { visibleBox, type Box } from '../state/courtView'
 import type { Point, Side, Token, View } from '../state/types'
 
@@ -160,6 +160,11 @@ export function zoomAround(l: Layout, k: number, from: Point, to: Point = from):
 /** Moves a zoomed court by (dx, dy) screen pixels; does nothing at 100 %. */
 export function panBy(l: Layout, dx: number, dy: number): Zoom | null {
   return l.zoom > 1 ? zoomAround(l, 1, [0, 0], [dx, dy]) : null
+}
+
+/** Screen y of the court's top line (the playing court, not the margin around it). */
+export function courtTopPx(l: Layout): number {
+  return Math.min(courtToScreen(l, 0, 0)[1], courtToScreen(l, COURT_LENGTH, COURT_WIDTH)[1])
 }
 
 export function screenToCourt(l: Layout, px: number, py: number): Point {

@@ -39,7 +39,7 @@ export function App() {
     <main ref={rootRef} className="app" data-orientation={layout?.orientation}>
       <h1 className="sr-only">{strings.appName}</h1>
       {layout && <Board layout={layout} router={router} />}
-      <DeleteZone zoneRef={router.deleteZoneRef} />
+      <DeleteZone zoneRef={router.deleteZoneRef} layout={layout} />
       <Canvases ref={canvasButtonRef} />
       <ZoomControls ref={zoomRef} layoutRef={layoutRef} />
       <UndoRedo ref={undoRedoRef} />
