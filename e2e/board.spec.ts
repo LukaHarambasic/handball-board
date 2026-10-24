@@ -32,6 +32,8 @@ async function swipe(page: Page, id: number, from: [number, number], to: [number
   await touch(page, 'pointerup', id, ...to)
 }
 
+/** The court switch, the one toolbar button that opens a menu. */
+const courtMenuButton = (page: Page) => page.locator('.bottom-bar button[aria-haspopup="menu"]')
 const tokens = (page: Page) => page.locator('.board [data-token-id]')
 const strokes = (page: Page) => page.locator('.board path[d^="M"]').and(page.locator('g[opacity="0.88"] path'))
 
@@ -121,17 +123,19 @@ test('6 v 6 places twelve players in one tap', async ({ page }) => {
   await expect(page.locator('.board [data-token-id] polygon')).toHaveCount(6)
 })
 
-test('a finger on empty court draws; Erase clears lines and keeps players', async ({ page }) => {
-  await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
-  const erase = page.getByRole('button', { name: 'Erase all lines' })
+test('a finger on empty court draws; Erase clears players and lines', async ({ page }) => {
+  const erase = page.getByRole('button', { name: 'Erase everything on the court' })
   await expect(erase).toBeDisabled()
+  await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
   await swipe(page, 1, await emptyCourt(page, 0.1, 0.2), await emptyCourt(page, 0.4, 0.5))
   // Both strokes stay on the half 6 v 6 leaves empty, in either orientation.
   await swipe(page, 1, await emptyCourt(page, 0.15, 0.3), await emptyCourt(page, 0.3, 0.45))
   await expect(strokes(page)).toHaveCount(2)
   await erase.click()
   await expect(strokes(page)).toHaveCount(0)
-  await expect(tokens(page)).toHaveCount(12)
+  await expect(tokens(page)).toHaveCount(0)
+  await expect(erase).toBeDisabled()
+  await expect(page.getByRole('status')).toHaveText('Court cleared')
 })
 
 test('a second finger or palm neither moves tokens nor draws', async ({ page }) => {
@@ -156,21 +160,25 @@ test('court switch: half shows the half changed last; full brings the other half
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
   await swipe(page, 1, await emptyCourt(page, 0.1, 0.3), await emptyCourt(page, 0.3, 0.6))
 
-  const courtButton = page.getByRole('button', { name: /court/i, expanded: false })
+  const courtButton = courtMenuButton(page)
   await courtButton.click()
   await page.getByRole('menuitemradio', { name: /Half court/ }).click()
   await expect(page.getByRole('menuitemradio')).toHaveCount(0)
   await expect(tokens(page)).toHaveCount(0)
   await expect(strokes(page)).toHaveCount(1)
 
-  // Erase in half view only wipes the visible half.
+  // Erase in half view only wipes the visible half, players and lines.
   await swipe(page, 1, await emptyCourt(page, 0.2, 0.2), await emptyCourt(page, 0.4, 0.3))
+  await page.locator('#tray-attack').focus()
+  await page.keyboard.press('Enter')
   await expect(strokes(page)).toHaveCount(2)
-  await page.getByRole('button', { name: 'Erase all lines' }).click()
+  await expect(tokens(page)).toHaveCount(1)
+  await page.getByRole('button', { name: 'Erase everything on the court' }).click()
   await expect(strokes(page)).toHaveCount(0)
+  await expect(tokens(page)).toHaveCount(0)
   await swipe(page, 1, await emptyCourt(page, 0.1, 0.3), await emptyCourt(page, 0.3, 0.6))
 
-  await page.getByRole('button', { name: /court/i }).click()
+  await courtMenuButton(page).click()
   await page.getByRole('menuitemradio', { name: /Full court/ }).click()
   await expect(tokens(page)).toHaveCount(12)
   await expect(strokes(page)).toHaveCount(1)
@@ -205,7 +213,7 @@ test('keyboard: place, move and delete a player; menu works with arrows and Esca
   await expect(tokens(page)).toHaveCount(0)
   await expect(page.locator('#tray-defense')).toBeFocused()
 
-  const courtButton = page.getByRole('button', { name: /court/i })
+  const courtButton = courtMenuButton(page)
   await courtButton.focus()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('menuitemradio', { name: /Full court/ })).toBeFocused()

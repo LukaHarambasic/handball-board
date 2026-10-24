@@ -114,11 +114,16 @@ export const useBoard = create<BoardStore>()(
           return { strokes: [...s.strokes, stroke], lastChangedSide: side }
         }),
 
-      // In half view only the visible half is wiped; the hidden half keeps its lines.
+      // Clears everything on the visible court, players and lines. In half view the hidden half is kept.
       erase: () =>
-        set((s) => ({
-          strokes: s.view === 'half' ? s.strokes.filter((st) => sideOfStroke(st) !== s.halfSide) : [],
-        })),
+        set((s) =>
+          s.view === 'half'
+            ? {
+                strokes: s.strokes.filter((st) => sideOfStroke(st) !== s.halfSide),
+                tokens: s.tokens.filter((t) => sideOfX(t.x) !== s.halfSide),
+              }
+            : { strokes: [], tokens: [] },
+        ),
 
       // In half view only the visible half's players are replaced.
       setupSixVsSix: () =>

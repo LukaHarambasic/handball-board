@@ -19,7 +19,7 @@ export const strings = {
   sixVsSix: '6 v 6',
   sixVsSixLabel: 'Place 6 v 6 in standard positions',
   erase: 'Erase',
-  eraseLabel: 'Erase all lines',
+  eraseLabel: 'Erase everything on the court',
   enterFullscreen: 'Full screen',
   exitFullscreen: 'Exit full screen',
   deleteIdle: 'Drag here\nto delete',
@@ -35,8 +35,7 @@ export const strings = {
   // Announcements for screen readers
   announcePlaced: (label: string) => `${label} placed`,
   announceDeleted: (label: string) => `${label} removed`,
-  announceErased: 'All lines erased',
-  announceNothingToErase: 'No lines to erase',
+  announceErased: 'Court cleared',
   announceSixVsSix: '6 v 6 placed',
   announceView: (label: string) => `${label} shown`,
   announceLine: 'Line drawn',

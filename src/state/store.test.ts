@@ -30,24 +30,28 @@ describe('board store', () => {
     expect(tokens.filter((t) => t.x >= 20)).toEqual([expect.objectContaining({ x: 30, y: 10 })])
   })
 
-  it('erase in half view clears only the visible half', () => {
+  it('erase in half view clears only the visible half, players and lines', () => {
     const s = useBoard.getState()
+    s.placeToken('defense', 5, 10)
     s.addStroke([[2, 2], [4, 4]])
+    s.placeToken('attack', 30, 10)
     s.addStroke([[30, 2], [34, 4]])
     s.setView('half') // last change was on the right
     expect(useBoard.getState().halfSide).toBe('right')
     useBoard.getState().erase()
     expect(useBoard.getState().strokes.map((st) => st.points[0]?.[0])).toEqual([2])
+    expect(useBoard.getState().tokens.map((t) => t.x)).toEqual([5])
     useBoard.getState().setView('full')
     expect(useBoard.getState().strokes).toHaveLength(1)
+    expect(useBoard.getState().tokens).toHaveLength(1)
   })
 
-  it('erase clears lines and keeps players', () => {
+  it('erase in full view clears players and lines', () => {
     useBoard.getState().placeToken('defense', 30, 10)
     useBoard.getState().addStroke([[1, 1], [3, 3]])
     useBoard.getState().erase()
     expect(useBoard.getState().strokes).toHaveLength(0)
-    expect(useBoard.getState().tokens).toHaveLength(1)
+    expect(useBoard.getState().tokens).toHaveLength(0)
   })
 
   it('every commit records the last-changed side', () => {

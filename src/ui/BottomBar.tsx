@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import type { PointerRouter } from '../input/usePointerRouter'
 import { fullscreenAvailable, useFullscreen } from '../platform/fullscreen'
-import { visibleStrokes } from '../state/courtView'
+import { visibleStrokes, visibleTokens } from '../state/courtView'
 import { announce, useBoard, useUi } from '../state/store'
 import { strings } from '../strings'
 import { BTN, CHIP } from './button'
@@ -12,7 +12,7 @@ import { TokenTray } from './TokenTray'
 /** Floating toolbar in three parts. Left: court menu. Centre: trays and 6 v 6. Right: Erase and Full screen. */
 export const BottomBar = forwardRef<HTMLDivElement, { router: PointerRouter }>(function BottomBar({ router }, ref) {
   const dragging = useUi((s) => s.drag !== null)
-  const hasStrokes = useBoard((s) => visibleStrokes(s, s.strokes).length > 0)
+  const hasContent = useBoard((s) => visibleStrokes(s, s.strokes).length > 0 || visibleTokens(s, s.tokens).length > 0)
   const fs = useFullscreen()
   const showFullscreen = fullscreenAvailable()
 
@@ -40,7 +40,7 @@ export const BottomBar = forwardRef<HTMLDivElement, { router: PointerRouter }>(f
         </button>
       </div>
       <div className="flex min-w-0 items-center justify-end gap-2 max-sm:gap-1.5">
-        <button type="button" onClick={erase} disabled={!hasStrokes} className={`${BTN} ${CHIP}`} aria-label={strings.eraseLabel}>
+        <button type="button" onClick={erase} disabled={!hasContent} className={`${BTN} ${CHIP}`} aria-label={strings.eraseLabel}>
           <EraseIcon />
           <span className="@max-[900px]:sr-only" aria-hidden="true">
             {strings.erase}
