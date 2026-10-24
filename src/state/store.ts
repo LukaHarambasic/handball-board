@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, type StateStorage, createJSONStorage } from 'zustand/middleware'
 import { sixVsSix } from '../setups/sixVsSix'
-import { activeSide, placementBox, sideOfX, strokeSide, switchView } from './courtView'
+import { activeSide, placementBox, sideOfStroke, sideOfX, strokeSide, switchView } from './courtView'
 import type { BoardState, Point, Team, Token, View } from './types'
 
 let counter = 0
@@ -108,17 +108,24 @@ export const useBoard = create<BoardStore>()(
         }),
 
       addStroke: (points) =>
+        set((s) => {
+          const side = s.view === 'half' ? s.halfSide : strokeSide(points)
+          const stroke = s.view === 'half' ? { id: makeId(), points, side } : { id: makeId(), points }
+          return { strokes: [...s.strokes, stroke], lastChangedSide: side }
+        }),
+
+      // In half view only the visible half is wiped; the hidden half keeps its lines.
+      erase: () =>
         set((s) => ({
-          strokes: [...s.strokes, { id: makeId(), points }],
-          lastChangedSide: strokeSide(points),
+          strokes: s.view === 'half' ? s.strokes.filter((st) => sideOfStroke(st) !== s.halfSide) : [],
         })),
 
-      erase: () => set({ strokes: [] }),
-
+      // In half view only the visible half's players are replaced.
       setupSixVsSix: () =>
         set((s) => {
           const side = activeSide(s)
-          return { tokens: sixVsSix(side, makeId), lastChangedSide: side }
+          const kept = s.view === 'half' ? s.tokens.filter((t) => sideOfX(t.x) !== side) : []
+          return { tokens: [...kept, ...sixVsSix(side, makeId)], lastChangedSide: side }
         }),
 
       setView: (view) => set((s) => switchView(s, view)),

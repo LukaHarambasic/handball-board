@@ -5,7 +5,12 @@ export type Point = [number, number]
 
 /** All positions are in court metres: x along the 40 m length, y across the 20 m width. */
 export type Token = { id: string; team: Team; x: number; y: number }
-export type Stroke = { id: string; points: Point[] }
+export type Stroke = {
+  id: string
+  points: Point[]
+  /** Set when drawn in half view, so a line reaching past the centre line stays on that half. */
+  side?: Side
+}
 
 export type BoardState = {
   view: View

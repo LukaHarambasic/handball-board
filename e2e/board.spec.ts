@@ -126,7 +126,8 @@ test('a finger on empty court draws; Erase clears lines and keeps players', asyn
   const erase = page.getByRole('button', { name: 'Erase all lines' })
   await expect(erase).toBeDisabled()
   await swipe(page, 1, await emptyCourt(page, 0.1, 0.2), await emptyCourt(page, 0.4, 0.5))
-  await swipe(page, 1, await emptyCourt(page, 0.1, 0.7), await emptyCourt(page, 0.3, 0.9))
+  // Both strokes stay on the half 6 v 6 leaves empty, in either orientation.
+  await swipe(page, 1, await emptyCourt(page, 0.15, 0.3), await emptyCourt(page, 0.3, 0.45))
   await expect(strokes(page)).toHaveCount(2)
   await erase.click()
   await expect(strokes(page)).toHaveCount(0)
@@ -150,7 +151,7 @@ test('a second finger or palm neither moves tokens nor draws', async ({ page }) 
   await expect(strokes(page)).toHaveCount(1)
 })
 
-test('court switch: half shows the half changed last; full puts it back', async ({ page }) => {
+test('court switch: half shows the half changed last; full brings the other half back as it was', async ({ page }) => {
   // Players on the right (6 v 6), then a line on the left: the left half changed last.
   await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
   await swipe(page, 1, await emptyCourt(page, 0.1, 0.3), await emptyCourt(page, 0.3, 0.6))
@@ -162,8 +163,16 @@ test('court switch: half shows the half changed last; full puts it back', async 
   await expect(tokens(page)).toHaveCount(0)
   await expect(strokes(page)).toHaveCount(1)
 
+  // Erase in half view only wipes the visible half.
+  await swipe(page, 1, await emptyCourt(page, 0.2, 0.2), await emptyCourt(page, 0.4, 0.3))
+  await expect(strokes(page)).toHaveCount(2)
+  await page.getByRole('button', { name: 'Erase all lines' }).click()
+  await expect(strokes(page)).toHaveCount(0)
+  await swipe(page, 1, await emptyCourt(page, 0.1, 0.3), await emptyCourt(page, 0.3, 0.6))
+
   await page.getByRole('button', { name: /court/i }).click()
   await page.getByRole('menuitemradio', { name: /Full court/ }).click()
+  await expect(tokens(page)).toHaveCount(12)
   await expect(strokes(page)).toHaveCount(1)
   // The line is back on the left half.
   const line = await page.locator('g[opacity="0.88"] path[d^="M"]').first().boundingBox()

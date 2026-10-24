@@ -1,5 +1,7 @@
 import { courtTransform, type Layout } from '../input/coords'
 import type { PointerRouter } from '../input/usePointerRouter'
+import { useMemo } from 'react'
+import { visibleStrokes, visibleTokens } from '../state/courtView'
 import { useBoard, useUi } from '../state/store'
 import { strings } from '../strings'
 import { Court } from './CourtMarkings'
@@ -8,10 +10,13 @@ import { TOKEN_HELP_ID, Tokens } from './Tokens'
 
 /** The board: one SVG covering the screen, its viewBox in metres. Layers: court → strokes → tokens. */
 export function Board({ layout, router }: { layout: Layout; router: PointerRouter }) {
-  const tokens = useBoard((s) => s.tokens)
-  const strokes = useBoard((s) => s.strokes)
+  const allTokens = useBoard((s) => s.tokens)
+  const allStrokes = useBoard((s) => s.strokes)
   const view = useBoard((s) => s.view)
   const halfSide = useBoard((s) => s.halfSide)
+  // In half view the other half keeps its players and lines; they are just not drawn.
+  const tokens = useMemo(() => visibleTokens({ view, halfSide }, allTokens), [view, halfSide, allTokens])
+  const strokes = useMemo(() => visibleStrokes({ view, halfSide }, allStrokes), [view, halfSide, allStrokes])
   const hiddenId = useUi((s) => s.drag?.id ?? null)
 
   const defenders = tokens.filter((t) => t.team === 'defense').length

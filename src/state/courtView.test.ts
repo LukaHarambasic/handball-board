@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampToBox, placementBox, sideOfX, strokeSide, switchView, visibleBox } from './courtView'
+import { clampToBox, placementBox, sideOfStroke, sideOfX, strokeSide, switchView, visibleBox, visibleStrokes, visibleTokens } from './courtView'
 import type { BoardState } from './types'
 
 const base: BoardState = {
@@ -25,21 +25,28 @@ describe('court view switching', () => {
     expect(strokeSide([[14, 0], [21, 0]])).toBe('left')
   })
 
-  it('full → half shows the last-changed half and drops the other half', () => {
+  it('full → half shows the last-changed half as it is and keeps the other half hidden', () => {
     const s = switchView(base, 'half')
     expect(s.view).toBe('half')
     expect(s.halfSide).toBe('left')
-    expect(s.tokens.map((t) => t.id)).toEqual(['a'])
-    expect(s.strokes.map((t) => t.id)).toEqual(['s1'])
+    expect(visibleTokens(s, s.tokens).map((t) => t.id)).toEqual(['a'])
+    expect(visibleStrokes(s, s.strokes).map((t) => t.id)).toEqual(['s1'])
+    expect(s.tokens).toHaveLength(2)
+    expect(s.strokes).toHaveLength(2)
   })
 
-  it('half → full keeps that half on its own side; the other half is empty', () => {
-    const half = { ...base, view: 'half' as const, halfSide: 'right' as const }
+  it('half → full brings back the other half exactly as it was', () => {
+    const half = switchView(base, 'half')
     const s = switchView(half, 'full')
     expect(s.view).toBe('full')
-    expect(s.tokens.map((t) => t.id)).toEqual(['b'])
-    expect(s.tokens[0]?.x).toBe(30)
-    expect(s.strokes.map((t) => t.id)).toEqual(['s2'])
+    expect(s.tokens).toEqual(base.tokens)
+    expect(s.strokes).toEqual(base.strokes)
+    expect(s.lastChangedSide).toBe('left')
+  })
+
+  it('a line drawn in half view stays on that half even if it reaches past the centre line', () => {
+    expect(sideOfStroke({ id: 'x', points: [[19, 1], [26, 1]], side: 'left' })).toBe('left')
+    expect(sideOfStroke({ id: 'x', points: [[19, 1], [26, 1]] })).toBe('right')
   })
 
   it('switching to the current view is a no-op', () => {

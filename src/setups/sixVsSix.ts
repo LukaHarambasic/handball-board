@@ -3,21 +3,21 @@ import type { Side, Team, Token } from '../state/types'
 
 type Spot = { team: Team; x: number; y: number }
 
-/** Standard setup in front of the right goal: 6:0 defense on the 6 m line, attack around 9 m. */
+/** Default setup in front of the right goal: 6:0 defense on the 6 m line, wings in the corners, backs and pivot. */
 const RIGHT_GOAL: Spot[] = [
-  // 6:0 defense, about 6.5 m from the posts
-  { team: 'defense', x: 36.4, y: 3.0 },
-  { team: 'defense', x: 33.9, y: 6.2 },
-  { team: 'defense', x: 33.2, y: 8.3 },
-  { team: 'defense', x: 33.2, y: 11.7 },
-  { team: 'defense', x: 33.9, y: 13.8 },
-  { team: 'defense', x: 36.4, y: 17.0 },
+  // 6:0 defense, just outside the goal area
+  { team: 'defense', x: 37.1, y: 2.7 },
+  { team: 'defense', x: 34.5, y: 4.7 },
+  { team: 'defense', x: 33.3, y: 7.3 },
+  { team: 'defense', x: 33.5, y: 12.3 },
+  { team: 'defense', x: 34.9, y: 15.1 },
+  { team: 'defense', x: 37.3, y: 17.2 },
   // Left wing, left back, centre back, right back, right wing, pivot
-  { team: 'attack', x: 38.6, y: 1.2 },
-  { team: 'attack', x: 29.0, y: 4.6 },
-  { team: 'attack', x: 27.2, y: 10.0 },
-  { team: 'attack', x: 29.0, y: 15.4 },
-  { team: 'attack', x: 38.6, y: 18.8 },
+  { team: 'attack', x: 39.8, y: 0.1 },
+  { team: 'attack', x: 29.4, y: 0.9 },
+  { team: 'attack', x: 26.1, y: 9.5 },
+  { team: 'attack', x: 29.0, y: 18.2 },
+  { team: 'attack', x: 39.8, y: 19.4 },
   { team: 'attack', x: 33.4, y: 10.0 },
 ]
 

@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import type { PointerRouter } from '../input/usePointerRouter'
 import { fullscreenAvailable, useFullscreen } from '../platform/fullscreen'
+import { visibleStrokes } from '../state/courtView'
 import { announce, useBoard, useUi } from '../state/store'
 import { strings } from '../strings'
 import { BTN, CHIP } from './button'
@@ -11,7 +12,7 @@ import { TokenTray } from './TokenTray'
 /** Floating toolbar in three parts. Left: court menu. Centre: trays and 6 v 6. Right: Erase and Full screen. */
 export const BottomBar = forwardRef<HTMLDivElement, { router: PointerRouter }>(function BottomBar({ router }, ref) {
   const dragging = useUi((s) => s.drag !== null)
-  const hasStrokes = useBoard((s) => s.strokes.length > 0)
+  const hasStrokes = useBoard((s) => visibleStrokes(s, s.strokes).length > 0)
   const fs = useFullscreen()
   const showFullscreen = fullscreenAvailable()
 

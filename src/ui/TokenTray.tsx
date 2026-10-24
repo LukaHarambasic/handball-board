@@ -3,7 +3,7 @@ import type { PointerRouter } from '../input/usePointerRouter'
 import { announce, useBoard } from '../state/store'
 import type { Team } from '../state/types'
 import { strings } from '../strings'
-import { tokenLabels } from '../board/Tokens'
+import { visibleTokenLabel } from '../board/Tokens'
 import { BTN } from './button'
 import { AttackerIcon, DefenderIcon } from './icons'
 
@@ -32,7 +32,7 @@ export function TokenTray({ router }: { router: PointerRouter }) {
   const onClick = (team: Team) => (e: MouseEvent) => {
     if (e.detail !== 0) return
     const t = useBoard.getState().placeTokenAuto(team)
-    announce(strings.announcePlaced(tokenLabels(useBoard.getState().tokens).get(t.id) ?? ''))
+    announce(strings.announcePlaced(visibleTokenLabel(t.id)))
   }
   return (
     <>

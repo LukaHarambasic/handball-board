@@ -1,5 +1,5 @@
 import { memo, type KeyboardEvent } from 'react'
-import { clampToBox, placementBox } from '../state/courtView'
+import { clampToBox, placementBox, visibleTokens } from '../state/courtView'
 import { announce, useBoard } from '../state/store'
 import type { Token } from '../state/types'
 import { courtToView, viewToCourt, type Layout } from '../input/coords'
@@ -18,6 +18,12 @@ export function tokenLabels(tokens: Token[]): Map<string, string> {
     labels.set(t.id, strings.tokenLabel(t.team, count[t.team]))
   }
   return labels
+}
+
+/** Label of a player as numbered among the players currently shown. */
+export function visibleTokenLabel(id: string): string {
+  const s = useBoard.getState()
+  return tokenLabels(visibleTokens(s, s.tokens)).get(id) ?? ''
 }
 
 function focusToken(id: string | undefined) {

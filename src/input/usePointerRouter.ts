@@ -1,8 +1,8 @@
 import { useMemo, useRef, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { strokeLength, strokePath } from '../board/strokePath'
-import { tokenLabels } from '../board/Tokens'
-import { clampToBox, placementBox } from '../state/courtView'
+import { visibleTokenLabel } from '../board/Tokens'
+import { clampToBox, placementBox, visibleTokens } from '../state/courtView'
 import { announce, useBoard, useUi } from '../state/store'
 import type { Point, Team } from '../state/types'
 import { strings } from '../strings'
@@ -170,7 +170,7 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
     function finishDrag(g: DragGesture, e: PointerEvent) {
       const board = useBoard.getState()
       const l = layoutRef.current
-      const label = (id: string) => tokenLabels(useBoard.getState().tokens).get(id) ?? ''
+      const label = visibleTokenLabel
 
       if (g.overDelete) {
         if (g.id) {
@@ -263,8 +263,8 @@ export function usePointerRouter(layoutRef: RefObject<Layout | null>): PointerRo
       const p = toCourt(e)
       if (!l || !p) return
       e.preventDefault()
-      const { tokens } = useBoard.getState()
-      const hit = hitToken(tokens, p[0], p[1], l.hitRadius)
+      const s = useBoard.getState()
+      const hit = hitToken(visibleTokens(s, s.tokens), p[0], p[1], l.hitRadius)
       if (hit) beginDrag(dragFor(e, hit.id, hit.team, [hit.x, hit.y], [hit.x - p[0], hit.y - p[1]]))
       else startStroke(e, p)
     }

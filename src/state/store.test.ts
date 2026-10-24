@@ -21,10 +21,25 @@ describe('board store', () => {
     }
   })
 
-  it('6 v 6 in half view uses the visible half', () => {
+  it('6 v 6 in half view replaces only the visible half', () => {
+    useBoard.getState().placeToken('attack', 30, 10)
     useBoard.setState({ view: 'half', halfSide: 'left' })
     useBoard.getState().setupSixVsSix()
-    expect(useBoard.getState().tokens.every((t) => t.x < 20)).toBe(true)
+    const { tokens } = useBoard.getState()
+    expect(tokens.filter((t) => t.x < 20)).toHaveLength(12)
+    expect(tokens.filter((t) => t.x >= 20)).toEqual([expect.objectContaining({ x: 30, y: 10 })])
+  })
+
+  it('erase in half view clears only the visible half', () => {
+    const s = useBoard.getState()
+    s.addStroke([[2, 2], [4, 4]])
+    s.addStroke([[30, 2], [34, 4]])
+    s.setView('half') // last change was on the right
+    expect(useBoard.getState().halfSide).toBe('right')
+    useBoard.getState().erase()
+    expect(useBoard.getState().strokes.map((st) => st.points[0]?.[0])).toEqual([2])
+    useBoard.getState().setView('full')
+    expect(useBoard.getState().strokes).toHaveLength(1)
   })
 
   it('erase clears lines and keeps players', () => {
