@@ -1,0 +1,50 @@
+# Handball Tactics Board
+
+A digital handball tactics board for timeouts: drag players onto a to-scale IHF court, draw with a finger, wipe it clean. Built for iPad Safari; works on phones and desktop too.
+
+## Develop
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # unit tests (Vitest)
+npm run test:e2e   # touch flows in WebKit on iPad and iPhone (Playwright; run `npx playwright install webkit` once)
+```
+
+`npm run preview` serves the production build with the same Content-Security-Policy as Netlify.
+
+## Deploy (Netlify)
+
+Static hosting only; `netlify.toml` holds the build, caching and security headers.
+
+1. Push this repo to GitHub.
+2. In Netlify: **Add new project → Import an existing project**, pick the repo. Build settings come from `netlify.toml` (`npm run build`, publish `dist`, Node 24).
+3. Production deploys from `main`; every pull request gets a Deploy Preview to test on the iPad before merging.
+
+## Using it on the iPad
+
+- **Full screen from a link:** tap the full-screen button in the toolbar.
+- **Like an app:** Share → Add to Home Screen. It then opens without browser UI and works offline.
+
+## Accessibility
+
+- Every control is a real button with a text name; focus is always visible.
+- Players are keyboard-operable: Tab to a player, arrow keys move it (Shift for larger steps), Delete removes it. Tray buttons place a player on Enter.
+- The court menu supports arrow keys, Home/End and Escape.
+- Board changes are announced through a polite live region.
+- Touch targets are at least 44 px; teams differ by shape (square vs triangle), not just colour.
+- Reduced-motion and forced-colours preferences are respected.
+- Page zoom is disabled on purpose (pinch would fight with drawing); toolbar text is 17–19 px.
+
+## Layout
+
+```
+src/
+  board/      Board, CourtMarkings, court.ts (IHF geometry), Tokens, Strokes, DragLayer, DeleteZone, useLayout
+  input/      usePointerRouter (token drag vs draw), coords (screen ↔ metres, layout fit)
+  ui/         BottomBar, CourtMenu, TokenTray, InstallHint, LiveRegion
+  setups/     sixVsSix (standard positions)
+  state/      store (Zustand + localStorage), courtView (last-changed side, full ↔ half)
+  platform/   fullscreen, wakeLock, standalone, serviceWorker
+  strings.ts  every user-facing label
+```
