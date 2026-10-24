@@ -43,13 +43,13 @@ export function TokenTray({ router }: { router: PointerRouter }) {
           type="button"
           aria-label={name}
           aria-describedby={TRAY_HINT_ID}
-          className={`${BTN} tray touch-none pl-3.5 pr-5 max-sm:pr-2.5 ${cls}`}
+          className={`${BTN} tray touch-none pl-3.5 pr-5 @max-[680px]:px-2.5 ${cls}`}
           onPointerDown={(e) => router.startSpawn(team, e)}
           onClick={onClick(team)}
           onContextMenu={(e) => e.preventDefault()}
         >
           <Icon />
-          <span className="max-sm:sr-only" aria-hidden="true">
+          <span className="@max-[680px]:sr-only" aria-hidden="true">
             {label}
           </span>
         </button>

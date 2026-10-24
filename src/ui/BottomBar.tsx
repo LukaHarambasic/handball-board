@@ -32,9 +32,9 @@ export const BottomBar = forwardRef<HTMLDivElement, { router: PointerRouter }>(f
       </div>
       <div className="flex items-center gap-2 max-sm:gap-1.5">
         <TokenTray router={router} />
-        <button type="button" onClick={sixVsSix} className={`${BTN} ${CHIP} ml-2 max-sm:ml-0`} aria-label={strings.sixVsSixLabel}>
+        <button type="button" onClick={sixVsSix} className={`${BTN} ${CHIP} ml-2 @max-[680px]:ml-0`} aria-label={strings.sixVsSixLabel}>
           <SixVsSixIcon />
-          <span className="max-sm:sr-only" aria-hidden="true">
+          <span className="@max-[680px]:sr-only" aria-hidden="true">
             {strings.sixVsSix}
           </span>
         </button>
@@ -42,7 +42,7 @@ export const BottomBar = forwardRef<HTMLDivElement, { router: PointerRouter }>(f
       <div className="flex min-w-0 items-center justify-end gap-2 max-sm:gap-1.5">
         <button type="button" onClick={erase} disabled={!hasStrokes} className={`${BTN} ${CHIP}`} aria-label={strings.eraseLabel}>
           <EraseIcon />
-          <span className="max-lg:sr-only" aria-hidden="true">
+          <span className="@max-[900px]:sr-only" aria-hidden="true">
             {strings.erase}
           </span>
         </button>
@@ -51,7 +51,7 @@ export const BottomBar = forwardRef<HTMLDivElement, { router: PointerRouter }>(f
             type="button"
             onClick={fs.toggle}
             aria-label={fs.active ? strings.exitFullscreen : strings.enterFullscreen}
-            className={`${BTN} w-15 bg-ink px-0 text-white hover:bg-ink-hover max-sm:w-12 short:w-12`}
+            className={`${BTN} w-15 bg-ink px-0 text-white hover:bg-ink-hover max-sm:w-12 short:w-12 @max-[400px]:w-11 @max-[340px]:hidden`}
           >
             {fs.active ? <ExitFullscreenIcon /> : <EnterFullscreenIcon />}
           </button>

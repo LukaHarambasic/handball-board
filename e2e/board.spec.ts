@@ -226,3 +226,20 @@ test('toolbar buttons meet the 44 pt touch target and fit the screen', async ({ 
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
   }
 })
+
+test('the court is centred and toolbar buttons never overlap', async ({ page }) => {
+  for (const [width, height] of [[1194, 834], [834, 1194], [683, 1000], [390, 844], [320, 568], [844, 390]] as const) {
+    await page.setViewportSize({ width, height })
+    await page.waitForTimeout(50)
+    const court = (await page.locator('.board > g > g rect').first().boundingBox())!
+    expect(Math.abs(court.x + court.width / 2 - width / 2), `court centred at ${width}x${height}`).toBeLessThan(2)
+    const bar = (await page.locator('.bottom-bar').boundingBox())!
+    const boxes = []
+    for (const b of await page.locator('.bottom-bar button:visible').all()) boxes.push((await b.boundingBox())!)
+    for (const [i, b] of boxes.entries()) {
+      expect(b.x, `inside bar at ${width}x${height}`).toBeGreaterThanOrEqual(bar.x - 0.5)
+      expect(b.x + b.width).toBeLessThanOrEqual(bar.x + bar.width + 0.5)
+      if (i > 0) expect(b.x, `no overlap at ${width}x${height}`).toBeGreaterThanOrEqual(boxes[i - 1]!.x + boxes[i - 1]!.width - 0.5)
+    }
+  }
+})

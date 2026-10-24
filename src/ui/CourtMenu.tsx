@@ -114,9 +114,9 @@ export function CourtMenu() {
         className={`${BTN} pr-3 ${open ? 'bg-defense-active text-defense-ink' : 'bg-chip text-ink hover:bg-chip-hover'}`}
       >
         {full ? <FullCourtIcon /> : <HalfCourtIcon />}
-        <span className="max-sm:sr-only">
+        <span className="@max-[480px]:sr-only">
           {full ? strings.fullCourtShort : strings.halfCourtShort}
-          <span className="max-lg:sr-only">{strings.courtSuffix}</span>
+          <span className="@max-[900px]:sr-only">{strings.courtSuffix}</span>
         </span>
         <span className="text-ink-muted">
           <ChevronIcon up={!open} />
