@@ -251,3 +251,66 @@ test('the court is centred and toolbar buttons never overlap', async ({ page }) 
     }
   }
 })
+
+test.describe('canvases', () => {
+  const dialog = (page: Page) => page.getByRole('dialog', { name: 'Canvases' })
+  const openCanvases = (page: Page) => page.getByRole('button', { name: /^Canvases, current:/ }).click()
+
+  test('create, rename, duplicate, switch and delete canvases', async ({ page }) => {
+    await page.getByRole('button', { name: 'Place 6 v 6 in standard positions' }).click()
+
+    // Rename the first canvas.
+    await openCanvases(page)
+    await expect(dialog(page)).toBeVisible()
+    await dialog(page).getByRole('button', { name: 'Rename Canvas 1' }).click()
+    const field = dialog(page).getByLabel('Canvas name')
+    await field.fill('Base defense')
+    await field.press('Enter')
+    await expect(dialog(page).getByRole('button', { name: /^Open Base defense/ })).toBeVisible()
+
+    // Duplicate it: the copy has the same twelve players.
+    await dialog(page).getByRole('button', { name: 'Duplicate Base defense' }).click()
+    await expect(dialog(page).getByRole('button', { name: /^Open Base defense copy\. 12 players/ })).toBeVisible()
+
+    // A new canvas opens empty and closes the dialog. "Canvas 1" is free again after the rename.
+    await dialog(page).getByRole('button', { name: 'New canvas' }).click()
+    await expect(dialog(page)).toBeHidden()
+    await expect(tokens(page)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Canvases, current: Canvas 1' })).toBeVisible()
+
+    // Switch back.
+    await openCanvases(page)
+    await dialog(page).getByRole('button', { name: /^Open Base defense copy/ }).click()
+    await expect(tokens(page)).toHaveCount(12)
+
+    // Delete asks first; Cancel keeps it.
+    await openCanvases(page)
+    await dialog(page).getByRole('button', { name: 'Delete Canvas 1' }).click()
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog(page).getByRole('button', { name: /^Open Canvas 1/ })).toBeVisible()
+    await dialog(page).getByRole('button', { name: 'Delete Canvas 1' }).click()
+    await dialog(page).getByRole('button', { name: 'Delete', exact: true }).click()
+    await expect(dialog(page).getByRole('button', { name: /^Open Canvas 1/ })).toHaveCount(0)
+    await expect(dialog(page).getByRole('listitem')).toHaveCount(2)
+
+    // Escape closes the dialog; everything survives a reload.
+    await page.keyboard.press('Escape')
+    await expect(dialog(page)).toBeHidden()
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Canvases, current: Base defense copy' })).toBeVisible()
+    await expect(tokens(page)).toHaveCount(12)
+  })
+
+  test('the canvases button never overlaps the court', async ({ page }) => {
+    const button = (await page.locator('.canvas-button').boundingBox())!
+    const court = (await page.locator('.board > g > g rect').first().boundingBox())!
+    const overlaps =
+      button.x < court.x + court.width && button.x + button.width > court.x && button.y < court.y + court.height && button.y + button.height > court.y
+    expect(overlaps).toBe(false)
+  })
+
+  test('the last canvas cannot be deleted', async ({ page }) => {
+    await openCanvases(page)
+    await expect(dialog(page).getByRole('button', { name: 'Delete Canvas 1' })).toBeDisabled()
+  })
+})

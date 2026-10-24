@@ -75,3 +75,45 @@ export const ExitFullscreenIcon = () => (
     <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
   </svg>
 )
+
+export const CanvasesIcon = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" {...base} strokeWidth="2">
+    <path d="M12 3l9 5-9 5-9-5 9-5z" />
+    <path d="M3 13l9 5 9-5" />
+  </svg>
+)
+
+export const PlusIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" {...base} strokeWidth="2.2">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+)
+
+export const RenameIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" {...base} strokeWidth="2">
+    <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+    <path d="M13.5 6.5l4 4" />
+  </svg>
+)
+
+export const DuplicateIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" {...base} strokeWidth="2">
+    <rect x="8" y="8" width="12" height="12" rx="2" />
+    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+  </svg>
+)
+
+export const TrashIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" {...base} strokeWidth="2">
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="M19 6l-1 14H6L5 6" />
+    <path d="M10 11v6M14 11v6" />
+  </svg>
+)
+
+export const CloseIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" {...base} strokeWidth="2.2">
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+)

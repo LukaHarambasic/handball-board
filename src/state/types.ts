@@ -21,3 +21,6 @@ export type BoardState = {
   tokens: Token[]
   strokes: Stroke[]
 }
+
+/** A named board the coach can switch between, duplicate and delete. */
+export type Canvas = { id: string; name: string; board: BoardState }

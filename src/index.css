@@ -209,7 +209,7 @@
 .install-hint {
   position: absolute;
   z-index: 20;
-  top: max(12px, calc(env(safe-area-inset-top) + 12px));
+  top: calc(max(12px, calc(env(safe-area-inset-top) + 12px)) + 60px);
   left: max(24px, calc(env(safe-area-inset-left) + 12px));
   max-width: min(460px, calc(100vw - 48px - 240px));
   box-sizing: border-box;
@@ -228,6 +228,7 @@
 }
 @media (max-width: 639px) {
   .install-hint {
+    top: calc(max(8px, env(safe-area-inset-top)) + 56px);
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
     max-width: none;
@@ -248,5 +249,134 @@
   .delete-zone,
   .install-hint {
     border: 2px solid CanvasText;
+  }
+}
+
+/* Canvases: top-left button and the dialog anchored under it. */
+.canvas-button {
+  position: absolute;
+  z-index: 30;
+  top: max(12px, calc(env(safe-area-inset-top) + 12px));
+  left: max(24px, calc(env(safe-area-inset-left) + 12px));
+  height: 52px;
+  max-width: min(300px, calc(100vw - 48px - 240px));
+  box-sizing: border-box;
+  padding: 0 10px 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--color-ink);
+  font-size: 18px;
+  font-weight: 600;
+  box-shadow:
+    0 6px 24px rgb(15 23 42 / 0.12),
+    0 1px 2px rgb(15 23 42 / 0.08);
+}
+.canvas-button:hover {
+  background: var(--color-chip);
+}
+
+.canvas-dialog {
+  position: fixed;
+  inset: auto;
+  top: calc(max(12px, calc(env(safe-area-inset-top) + 12px)) + 60px);
+  left: max(24px, calc(env(safe-area-inset-left) + 12px));
+  margin: 0;
+  padding: 0;
+  width: min(480px, calc(100vw - 48px));
+  max-height: calc(100dvh - max(12px, calc(env(safe-area-inset-top) + 12px)) - 60px - 24px);
+  border: none;
+  border-radius: 22px;
+  background: #fff;
+  color: var(--color-ink);
+  box-shadow:
+    0 16px 48px rgb(15 23 42 / 0.22),
+    0 1px 2px rgb(15 23 42 / 0.08);
+  overflow: hidden;
+}
+.canvas-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: canvas-in 140ms ease-out;
+}
+/* The dialog itself takes focus on open; only its controls show a ring. */
+.canvas-dialog:focus-visible {
+  outline: none;
+}
+.canvas-dialog::backdrop {
+  background: rgb(15 23 42 / 0.28);
+}
+@keyframes canvas-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.canvas-list {
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.canvas-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 6px 6px 8px;
+  border-radius: 16px;
+}
+.canvas-thumb {
+  width: 84px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.1);
+}
+
+/* Text fields are the one place text selection is wanted; 17 px+ avoids iOS zoom on focus. */
+input {
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: manipulation;
+}
+
+@media (max-width: 639px) {
+  .canvas-button {
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    height: 48px;
+    max-width: min(200px, calc(100vw - 16px - 196px));
+    font-size: 17px;
+  }
+  .canvas-dialog {
+    top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+    left: max(8px, env(safe-area-inset-left));
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - 56px - 16px);
+  }
+  .canvas-thumb {
+    width: 64px;
+    height: 34px;
+  }
+}
+@media (max-height: 500px) {
+  .canvas-button {
+    top: max(8px, env(safe-area-inset-top));
+    height: 48px;
+  }
+  .canvas-dialog {
+    top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - 56px - 16px);
   }
 }

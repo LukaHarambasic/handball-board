@@ -25,6 +25,7 @@ Static hosting only; `netlify.toml` holds the build, caching and security header
 
 - **Full screen from a link:** tap the full-screen button in the toolbar.
 - **Like an app:** Share → Add to Home Screen. It then opens without browser UI and works offline.
+- **Canvases:** the top-left button lists your boards. Create, rename, duplicate and delete them there. They are saved only in this browser on this device (no account, no sync).
 
 ## Accessibility
 

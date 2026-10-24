@@ -29,8 +29,8 @@ export type LayoutInput = {
   insets: Insets
   /** Screen y of the bottom bar's top edge. */
   barTop: number
-  /** Screen rect of the delete zone; the court line must never sit under it. */
-  deleteZone: Rect
+  /** Screen rects of the top-corner controls (delete zone, canvases button); the court line never sits under them. */
+  topObstacles: Rect[]
   view: View
   halfSide: Side
 }
@@ -58,8 +58,6 @@ const GAP = 10
 const TOKEN_M = 1.6
 const MIN_TOKEN_PX = 20
 const MIN_HIT_PX = 22
-/** Give up centring only when it makes the court at least this much bigger. */
-const SLIDE_GAIN = 1.2
 
 function viewBoxOf(o: Orientation, b: Box) {
   const [ua, va] = courtToView(o, b.x0, b.y0)
@@ -87,21 +85,23 @@ export function computeLayout(i: LayoutInput): Layout {
       contentTop: t + (bottom - t - scale * ch) / 2,
     }
   }
-  const lineTop = (f: ReturnType<typeof fit>) => f.contentTop + f.scale * MARGIN
 
-  // Centred fit; if the court line would sit under the delete zone, push the top down and fit again.
-  const first = fit(top)
-  let centred = first
-  for (let k = 0; k < 8 && lineTop(centred) < i.deleteZone.bottom + GAP - 0.5; k++) {
-    top += i.deleteZone.bottom + GAP - lineTop(centred)
-    centred = fit(top)
+  // Centred fit. If the court line would sit under a top-corner control it overlaps
+  // horizontally, push the top down and fit again.
+  let f = fit(top)
+  for (let k = 0; k < 8; k++) {
+    const lineTop = f.contentTop + f.scale * MARGIN
+    const lineLeft = f.contentLeft + f.scale * MARGIN
+    const lineRight = f.contentLeft + f.scale * (cw - MARGIN)
+    const need = Math.max(
+      -Infinity,
+      ...i.topObstacles.filter((o) => o.right > lineLeft - GAP && o.left < lineRight + GAP).map((o) => o.bottom + GAP),
+    )
+    if (lineTop >= need - 0.5) break
+    top += need - lineTop
+    f = fit(top)
   }
-  // On short screens (phones in landscape) pushing down shrinks the court a lot; sliding it left
-  // of the delete zone keeps it much bigger. Only then is it worth giving up centring.
-  const slideLeft = i.deleteZone.left - GAP - first.scale * (cw - MARGIN)
-  const slid =
-    slideLeft >= left && first.scale >= centred.scale * SLIDE_GAIN ? { ...first, contentLeft: slideLeft } : null
-  const { scale, contentLeft, contentTop } = slid ?? centred
+  const { scale, contentLeft, contentTop } = f
 
   const ox = contentLeft - scale * vb.u0
   const oy = contentTop - scale * vb.v0

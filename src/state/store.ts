@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { persist, type StateStorage, createJSONStorage } from 'zustand/middleware'
 import { sixVsSix } from '../setups/sixVsSix'
 import { activeSide, placementBox, sideOfStroke, sideOfX, strokeSide, switchView } from './courtView'
-import type { BoardState, Point, Team, Token, View } from './types'
+import { cleanName, cloneBoard, copyName, nextCanvasName } from './canvases'
+import type { BoardState, Canvas, Point, Team, Token, View } from './types'
 
 let counter = 0
 export function makeId(): string {
@@ -22,7 +23,23 @@ type Actions = {
   setView: (view: View) => void
 }
 
-export type BoardStore = BoardState & Actions
+type CanvasActions = {
+  /** Adds an empty canvas and opens it. */
+  createCanvas: () => Canvas
+  /** Adds a copy right after the original; the open canvas stays open. */
+  duplicateCanvas: (id: string) => Canvas | undefined
+  /** Deletes a canvas; the last one cannot be deleted. Deleting the open one opens a neighbour. */
+  deleteCanvas: (id: string) => void
+  renameCanvas: (id: string, name: string) => void
+  openCanvas: (id: string) => void
+}
+
+/**
+ * The board fields at the top level are always the open canvas, so the board code never
+ * deals with canvases. Its entry in `canvases` is only brought up to date when needed.
+ */
+export type BoardStore = BoardState & { canvases: Canvas[]; activeId: string } & Actions & CanvasActions
+type Persisted = { canvases: Canvas[]; activeId: string }
 
 export const initialBoard: BoardState = {
   view: 'full',
@@ -30,6 +47,34 @@ export const initialBoard: BoardState = {
   lastChangedSide: 'right',
   tokens: [],
   strokes: [],
+}
+
+export function pickBoard(s: BoardState): BoardState {
+  return { view: s.view, halfSide: s.halfSide, lastChangedSide: s.lastChangedSide, tokens: s.tokens, strokes: s.strokes }
+}
+
+/** Canvases with the open one's board taken from the live fields. */
+export function syncedCanvases(s: BoardStore): Canvas[] {
+  return s.canvases.map((c) => (c.id === s.activeId ? { ...c, board: pickBoard(s) } : c))
+}
+
+export function initialStore(): Pick<BoardStore, keyof BoardState | 'canvases' | 'activeId'> {
+  const first: Canvas = { id: makeId(), name: nextCanvasName([]), board: initialBoard }
+  return { ...initialBoard, canvases: [first], activeId: first.id }
+}
+
+/** Version 1 stored a single board; it becomes the first canvas. */
+export function migrateStored(persisted: unknown, version: number): Persisted | undefined {
+  if (version >= 2) return persisted as Persisted
+  const old = persisted as Partial<BoardState> | undefined
+  const board: BoardState = {
+    ...initialBoard,
+    ...(old ?? {}),
+    tokens: Array.isArray(old?.tokens) ? old.tokens : [],
+    strokes: Array.isArray(old?.strokes) ? old.strokes : [],
+  }
+  const first: Canvas = { id: makeId(), name: nextCanvasName([]), board }
+  return { canvases: [first], activeId: first.id }
 }
 
 // Persistence is a convenience: storage may be missing or throw (private mode, blocked site data).
@@ -76,7 +121,7 @@ export function findFreeSpot(tokens: Token[], preferred: Point, box: ReturnType<
 export const useBoard = create<BoardStore>()(
   persist(
     (set, get) => ({
-      ...initialBoard,
+      ...initialStore(),
 
       placeToken: (team, x, y) => {
         const token = { id: makeId(), team, x, y }
@@ -134,18 +179,64 @@ export const useBoard = create<BoardStore>()(
         }),
 
       setView: (view) => set((s) => switchView(s, view)),
+
+      createCanvas: () => {
+        const s = get()
+        const canvas: Canvas = { id: makeId(), name: nextCanvasName(s.canvases), board: initialBoard }
+        set({ canvases: [...syncedCanvases(s), canvas], activeId: canvas.id, ...initialBoard })
+        return canvas
+      },
+
+      duplicateCanvas: (id) => {
+        const list = syncedCanvases(get())
+        const i = list.findIndex((c) => c.id === id)
+        const source = list[i]
+        if (!source) return undefined
+        const copy: Canvas = { id: makeId(), name: copyName(source.name, list), board: cloneBoard(source.board) }
+        list.splice(i + 1, 0, copy)
+        set({ canvases: list })
+        return copy
+      },
+
+      deleteCanvas: (id) =>
+        set((s) => {
+          if (s.canvases.length <= 1) return s
+          const list = syncedCanvases(s)
+          const i = list.findIndex((c) => c.id === id)
+          if (i < 0) return s
+          const rest = list.filter((c) => c.id !== id)
+          if (id !== s.activeId) return { canvases: rest }
+          const next = rest[Math.min(i, rest.length - 1)] as Canvas
+          return { canvases: rest, activeId: next.id, ...next.board }
+        }),
+
+      renameCanvas: (id, name) =>
+        set((s) => {
+          const clean = cleanName(name)
+          if (!clean) return s
+          return { canvases: s.canvases.map((c) => (c.id === id ? { ...c, name: clean } : c)) }
+        }),
+
+      openCanvas: (id) =>
+        set((s) => {
+          const target = s.canvases.find((c) => c.id === id)
+          if (!target || id === s.activeId) return s
+          return { canvases: syncedCanvases(s), activeId: id, ...target.board }
+        }),
     }),
     {
+      // Key kept from version 1 so existing boards migrate instead of disappearing.
       name: 'handball-board-v1',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => safeStorage),
-      partialize: ({ view, halfSide, lastChangedSide, tokens, strokes }): BoardState => ({
-        view,
-        halfSide,
-        lastChangedSide,
-        tokens,
-        strokes,
-      }),
+      partialize: (s): Persisted => ({ canvases: syncedCanvases(s), activeId: s.activeId }),
+      migrate: (persisted, version) => migrateStored(persisted, version) as unknown as BoardStore,
+      merge: (persisted, current) => {
+        const p = persisted as Persisted | undefined
+        const active = p?.canvases?.find((c) => c.id === p.activeId) ?? p?.canvases?.[0]
+        if (!p || !active) return current
+        return { ...current, canvases: p.canvases, activeId: active.id, ...active.board }
+      },
     },
   ),
 )

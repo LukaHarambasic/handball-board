@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { findFreeSpot, initialBoard, useBoard } from './store'
+import { findFreeSpot, initialStore, useBoard } from './store'
 import { placementBox } from './courtView'
 
-beforeEach(() => useBoard.setState(initialBoard))
+beforeEach(() => useBoard.setState(initialStore()))
 
 describe('board store', () => {
   it('6 v 6 replaces all players: six defenders on the 6 m line, six attackers around 9 m', () => {

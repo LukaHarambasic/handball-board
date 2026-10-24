@@ -6,7 +6,10 @@ const ipad: LayoutInput = {
   height: 834,
   insets: { top: 0, right: 0, bottom: 0, left: 0 },
   barTop: 726,
-  deleteZone: { left: 950, top: 12, right: 1170, bottom: 76 },
+  topObstacles: [
+    { left: 950, top: 12, right: 1170, bottom: 76 },
+    { left: 24, top: 12, right: 200, bottom: 64 },
+  ],
   view: 'full',
   halfSide: 'right',
 }
@@ -31,13 +34,17 @@ describe('screen ↔ court mapping', () => {
     expect(screenToCourt(l, px, py)[1]).toBeCloseTo(10, 6)
   })
 
-  it('keeps the court line clear of the delete zone', () => {
+  it('keeps the court line clear of the top-corner controls and centred', () => {
     for (const input of [ipad, { ...ipad, width: 1366, height: 700, barTop: 600 }, { ...ipad, width: 834, height: 1194, barTop: 1086 }]) {
       const l = computeLayout(input)
-      const top = Math.min(courtToScreen(l, 0, 0)[1], courtToScreen(l, 40, 20)[1])
-      const right = Math.max(courtToScreen(l, 0, 0)[0], courtToScreen(l, 40, 20)[0])
-      const clear = top >= input.deleteZone.bottom + 9 || right <= input.deleteZone.left - 9
-      expect(clear).toBe(true)
+      const [ax, ay] = courtToScreen(l, 0, 0)
+      const [bx, by] = courtToScreen(l, 40, 20)
+      const court = { left: Math.min(ax, bx), right: Math.max(ax, bx), top: Math.min(ay, by) }
+      for (const o of input.topObstacles) {
+        const clear = court.top >= o.bottom + 9 || court.right <= o.left - 9 || court.left >= o.right + 9
+        expect(clear).toBe(true)
+      }
+      expect((court.left + court.right) / 2).toBeCloseTo(input.width / 2, 0)
     }
   })
 
@@ -50,7 +57,7 @@ describe('screen ↔ court mapping', () => {
   })
 
   it('touch targets stay at least 44 px across', () => {
-    const phone = computeLayout({ ...ipad, width: 667, height: 375, barTop: 303, deleteZone: { left: 479, top: 8, right: 659, bottom: 60 } })
+    const phone = computeLayout({ ...ipad, width: 667, height: 375, barTop: 303, topObstacles: [{ left: 479, top: 8, right: 659, bottom: 60 }] })
     expect(phone.hitRadius * phone.scale).toBeGreaterThanOrEqual(22 - 1e-9)
   })
 
